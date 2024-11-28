@@ -45,36 +45,31 @@ class StateMachine:
 
         if self.loop_count < 5:
             self.loop_count += 1
-            return
 
         if self.state == "GREETING":
-            self.transition("FORMALITY")
+            return self.transition("FORMALITY")
         elif self.state == "FORMALITY":
-            self.transition("NAME")
+            return self.transition("NAME")
         elif self.state == "NAME":
-            self.transition("FEELING")
+            return self.transition("FEELING")
         elif self.state == "FEELING":
-            self.transition("EMOTION_VERIFIER")
+            return self.transition("EMOTION_VERIFIER")
         elif self.state == "EMOTION_VERIFIER":
-            self.transition("FEELING_CORRECTION")
+            return self.transition("FEELING_CORRECTION")
         elif self.state == "FEELING_CORRECTION":
-            self.transition("EVENT")
+            return self.transition("EVENT")
         elif self.state == "EVENT":
-            self.transition("EXC10")
+            return self.transition("EXC10")
         elif self.state == "EXC10":
-            self.transition("ADDITIONAL")
+            return self.transition("ADDITIONAL")
         elif self.state == "ADDITIONAL":
-            self.transition("SUGGESTOIN")
+            return self.transition("SUGGESTOIN")
         elif self.state == "SUGGESTOIN":
-            self.transition("FEEDBACK")
+            return self.transition("FEEDBACK")
         elif self.state == "FEEDBACK":
-            self.transition("THANKS")
+            return self.transition("THANKS")
         elif self.state == "THANKS":
-            self.transition("END")
+            return self.transition("END")
         elif self.state == "END":
             print("State machine has reached the end.")
-
-# Example usage
-state_machine = StateMachine()
-while state_machine.state != "END":
-    state_machine.execute_state()
+            return "Done"
