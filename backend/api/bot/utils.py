@@ -1,5 +1,4 @@
 from backend.api.bot.gpt import openai_req_generator
-from Prompts import system_prompt
 
 class StateMachine:
     def __init__(self):
@@ -16,21 +15,32 @@ class StateMachine:
     def state_handler(self):
         if self.loop_count < 5:
             return "صحبت آزاد - Open-Ended Conversation"
+    
+        elif self.state == "NAME" or self.state == "FORMALITY" or self.state == "GREETING":
+            with open('../Prompts/greeting.md', "r", encoding="utf-8") as file:
+                system_prompt = file.read()
+            return openai_req_generator(system_prompt=system_prompt, user_prompt='', json_output=False, temperature=0.1)
+
+        elif self.state == "EMOTION":
+            with open('../Prompts/emotion.md', "r", encoding="utf-8") as file:
+                system_prompt = file.read()
+            return openai_req_generator(system_prompt=system_prompt, user_prompt='', json_output=False, temperature=0.1)
         
-        elif self.state == "GREETING":
-            return openai_req_generator(system_prompt=system_prompt, user_prompt="سلام روزت بخیر", json_output=False, temperature=0.1)
-        elif self.state == "FORMALITY":
-            return "دوست داری با هم رسمی صحبت کنیم یا دوستانه؟"
-        elif self.state == "NAME":
-            return "اسمت چیه؟"
-        elif self.state == "FEELING":
-            return "حالت چطوره؟"
         elif self.state == "EMOTION_VERIFIER":
-            return "آیا احساس ناراحتی داری؟"
-        elif self.state == "FEELING_CORRECTION":
-            return "احساست رو میتونی بهم بگی؟"
+            with open('../Prompts/emotion_verifier.md', "r", encoding="utf-8") as file:
+                system_prompt = file.read()
+            return openai_req_generator(system_prompt=system_prompt, user_prompt='', json_output=False, temperature=0.1)
+        
+        elif self.state == "EMOTION_CORRECTION":
+            with open('../Prompts/emotion_correction.md', "r", encoding="utf-8") as file:
+                system_prompt = file.read()
+            return openai_req_generator(system_prompt=system_prompt, user_prompt='', json_output=False, temperature=0.1)
+        
         elif self.state == "EVENT":
-            return "آیا اتفاق خاصی امروز افتاده که بخواهی درباره‌اش صحبت کنی؟"
+            with open('../Prompts/event.md', "r", encoding="utf-8") as file:
+                system_prompt = file.read()
+            return openai_req_generator(system_prompt=system_prompt, user_prompt='', json_output=False, temperature=0.1)
+        
         elif self.state == "ASK_EVENT_RECENT":
             return "آیا این اتفاق به تازگی برایت رخ داده؟"
         elif self.state == "EXC10":
@@ -70,9 +80,9 @@ class StateMachine:
             return self.transition("NAME")         #Need To Name in Memory - Not in SAT Diagram
         
         elif self.state == "NAME":
-            return self.transition("FEELING")
+            return self.transition("EMOTION")
         
-        elif self.state == "FEELING":
+        elif self.state == "EMOTION":
             return self.transition("EMOTION_VERIFIER")
             
         elif self.state == "EMOTION_VERIFIER":
@@ -84,9 +94,9 @@ class StateMachine:
                 if self.emotion == 'Positive':
                     return self.transition("ASK_EXERCISE")      #Recommend Exc 7, 8, 12, 13, 14, 15, 17, 18, 19, 21, 22, 23, 26
             if self.response == 'No':
-                return self.transition("FEELING_CORRECTION")
+                return self.transition("EMOTION_CORRECTION")
             
-        elif self.state == "FEELING_CORRECTION":
+        elif self.state == "EMOTION_CORRECTION":
             return self.transition("EVENT")
         
         elif self.state == "EVENT":
