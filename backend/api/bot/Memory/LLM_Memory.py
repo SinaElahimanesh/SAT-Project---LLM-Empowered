@@ -13,11 +13,11 @@ def summarize_conversation(text, context):
     return openai_req_generator(system_prompt=system_prompt, json_output=False, temperature=0.1)
 
 class UserMemory:
-    def __init__(self, user_id):
+    def __init__(self, user_id, conversation_history, summary):
         self.user_id = user_id
-        self.conversation_history = []
+        self.conversation_history = conversation_history
+        self.summary = summary
         self.active_session_history = []
-        self.summary = ""
 
     def add_message(self, user_message, llm_response):
         self.conversation_history.append({"user": user_message, "llm": llm_response})
@@ -25,7 +25,7 @@ class UserMemory:
 
     def update_summary(self):
         active_conversation = "\n".join([f"User: {msg['user']}\nLLM: {msg['llm']}" for msg in self.active_session_history])
-        self.summary = summarize_conversation(text=active_conversation, context=self.summary)
+        self.summary = summarize_conversation(text=active_conversation, context=self.get_summary())
 
     def get_full_history(self):
         return self.conversation_history
@@ -40,7 +40,7 @@ class UserMemory:
         with open(file_path, "r") as json_file:
             data = json.load(json_file)
 
-        data.update(self.conversation_history)  
+        data.update({self.user_id: {"conversation_history": self.conversation_history, "summary": self.summary}})  
 
         with open(file_path, "w") as json_file:
             json.dump(data, json_file, indent=4)
@@ -49,12 +49,14 @@ class UserMemory:
 
 class MemoryManager:
     def __init__(self):
-        self.user_memories = {}
+        with open('memory.json', "r") as json_file:
+            self.user_memories = json.load(json_file)
 
     def get_user_memory(self, user_id):
         if user_id not in self.user_memories:
-            self.user_memories[user_id] = UserMemory(user_id)
-        return self.user_memories[user_id]
+            self.user_memories[user_id] = UserMemory(user_id, [], "")
+            return self.user_memories[user_id]
+        return UserMemory(user_id, self.user_memories[user_id].conversation_history, self.user_memories[user_id].summary)
 
     def add_user_message(self, user_id, user_message, llm_response):
         user_memory = self.get_user_memory(user_id)
@@ -70,8 +72,7 @@ class MemoryManager:
     
     def exit_session(self, user_id):
         user_memory = self.get_user_memory(user_id)
-
-        return user_memory.exit_session()
+        user_memory.exit_session()
 
 # Example usage
 if __name__ == "__main__":
