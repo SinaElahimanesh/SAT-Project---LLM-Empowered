@@ -1,3 +1,6 @@
+from backend.api.bot.gpt import openai_req_generator
+from Prompts import system_prompt
+
 class StateMachine:
     def __init__(self):
         self.state = "GREETING"  
@@ -15,7 +18,7 @@ class StateMachine:
             return "صحبت آزاد - Open-Ended Conversation"
         
         elif self.state == "GREETING":
-            return "سلام روزت بخیر"
+            return openai_req_generator(system_prompt=system_prompt, user_prompt="سلام روزت بخیر", json_output=False, temperature=0.1)
         elif self.state == "FORMALITY":
             return "دوست داری با هم رسمی صحبت کنیم یا دوستانه؟"
         elif self.state == "NAME":
