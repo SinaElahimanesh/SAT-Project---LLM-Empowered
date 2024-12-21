@@ -1,3 +1,5 @@
+from datetime import timezone
+from django.contrib.auth import authenticate
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
@@ -28,19 +30,19 @@ class LoginView(APIView):
         return Response({"error": "Invalid credentials"}, status=400)
 
 class MessageView(APIView):
-    permission_classes = [IsAuthenticated]
+    # permission_classes = [IsAuthenticated]
     state_machine = StateMachine()
 
     def post(self, request):
-        user = request.user
+        # user = request.user
         text = request.data.get('text')
-        latest_message = Message.objects.filter(user=user).order_by('-timestamp').first()
-        session_id = latest_message.session_id if latest_message and (timezone.now() - latest_message.timestamp).seconds < 300 else (latest_message.session_id + 1 if latest_message else 1)
+        # latest_message = Message.objects.filter(user=user).order_by('-timestamp').first()
+        # session_id = latest_message.session_id if latest_message and (timezone.now() - latest_message.timestamp).seconds < 300 else (latest_message.session_id + 1 if latest_message else 1)
         
         # Save message
-        message = Message.objects.create(user=user, text=text, session_id=session_id)
+        # message = Message.objects.create(user=user, text=text, session_id=session_id)
 
         # State machine logic
-        response_text = self.state_machine.execute_state()
+        response_text = self.state_machine.execute_state(text)
 
         return Response({"response": response_text}, status=200)

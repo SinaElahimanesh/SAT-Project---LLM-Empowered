@@ -3,7 +3,7 @@ from openai import OpenAI
 
 client = OpenAI(
     # This is the default and can be omitted
-    api_key='' 
+    api_key=''
 )
 
 def openai_req_generator(system_prompt, user_prompt, json_output=False, temperature=0.01):

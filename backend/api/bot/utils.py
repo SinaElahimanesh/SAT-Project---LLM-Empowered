@@ -1,4 +1,5 @@
-from backend.api.bot.gpt import openai_req_generator
+import os
+from api.bot.gpt import openai_req_generator
 
 class StateMachine:
     def __init__(self):
@@ -12,34 +13,45 @@ class StateMachine:
         self.response = 'Yes'
         self.loop_count = 0
 
-    def state_handler(self):
-        if self.loop_count < 5:
-            return "صحبت آزاد - Open-Ended Conversation"
+    def state_handler(self, message):
+        # if self.loop_count < 5:
+        #     return "صحبت آزاد - Open-Ended Conversation"
     
-        elif self.state == "NAME" or self.state == "FORMALITY" or self.state == "GREETING":
-            with open('../Prompts/greeting.md', "r", encoding="utf-8") as file:
+        if self.state == "GREETING":
+            with open('api/bot/Prompts/greeting.md', "r", encoding="utf-8") as file:
                 system_prompt = file.read()
-            return openai_req_generator(system_prompt=system_prompt, user_prompt='', json_output=False, temperature=0.1)
+            return openai_req_generator(system_prompt=system_prompt, user_prompt=message, json_output=False, temperature=0.1)
+
+        elif self.state == "NAME":
+            with open('api/bot/Prompts/name.md', "r", encoding="utf-8") as file:
+                system_prompt = file.read()
+            return openai_req_generator(system_prompt=system_prompt, user_prompt=message, json_output=False, temperature=0.1)
+
+        elif self.state == "FORMALITY":
+            with open('api/bot/Prompts/formality.md', "r", encoding="utf-8") as file:
+                system_prompt = file.read()
+            return openai_req_generator(system_prompt=system_prompt, user_prompt=message, json_output=False, temperature=0.1)
+
 
         elif self.state == "EMOTION":
-            with open('../Prompts/emotion.md', "r", encoding="utf-8") as file:
+            with open('api/bot/Prompts/emotion.md', "r", encoding="utf-8") as file:
                 system_prompt = file.read()
-            return openai_req_generator(system_prompt=system_prompt, user_prompt='', json_output=False, temperature=0.1)
+            return openai_req_generator(system_prompt=system_prompt, user_prompt=message, json_output=False, temperature=0.1)
         
         elif self.state == "EMOTION_VERIFIER":
-            with open('../Prompts/emotion_verifier.md', "r", encoding="utf-8") as file:
+            with open('api/bot/Prompts/emotion_verifier.md', "r", encoding="utf-8") as file:
                 system_prompt = file.read()
-            return openai_req_generator(system_prompt=system_prompt, user_prompt='', json_output=False, temperature=0.1)
+            return openai_req_generator(system_prompt=system_prompt, user_prompt=message, json_output=False, temperature=0.1)
         
         elif self.state == "EMOTION_CORRECTION":
-            with open('../Prompts/emotion_correction.md', "r", encoding="utf-8") as file:
+            with open('api/bot/Prompts/emotion_correction.md', "r", encoding="utf-8") as file:
                 system_prompt = file.read()
-            return openai_req_generator(system_prompt=system_prompt, user_prompt='', json_output=False, temperature=0.1)
+            return openai_req_generator(system_prompt=system_prompt, user_prompt=message, json_output=False, temperature=0.1)
         
         elif self.state == "EVENT":
-            with open('../Prompts/event.md', "r", encoding="utf-8") as file:
+            with open('api/bot/Prompts/event.md', "r", encoding="utf-8") as file:
                 system_prompt = file.read()
-            return openai_req_generator(system_prompt=system_prompt, user_prompt='', json_output=False, temperature=0.1)
+            return openai_req_generator(system_prompt=system_prompt, user_prompt=message, json_output=False, temperature=0.1)
         
         elif self.state == "ASK_EVENT_RECENT":
             return "آیا این اتفاق به تازگی برایت رخ داده؟"
@@ -66,102 +78,104 @@ class StateMachine:
         elif self.state == "END":
             return "روز خوبی داشته باشی"
 
-    def execute_state(self):
+    def execute_state(self, message):
         print(f"You are in the {self.state} state")
-        print(self.state_handler())
+        response = self.state_handler(message)
+        print(response)
 
         if self.loop_count < 5:
             self.loop_count += 1
 
         if self.state == "GREETING":
-            return self.transition("FORMALITY")    #Need To Save Tone in Memory - Not in SAT Diagram
+            self.transition("FORMALITY")    #Need To Save Tone in Memory - Not in SAT Diagram
         
         elif self.state == "FORMALITY":            
-            return self.transition("NAME")         #Need To Name in Memory - Not in SAT Diagram
+            self.transition("NAME")         #Need To Name in Memory - Not in SAT Diagram
         
         elif self.state == "NAME":
-            return self.transition("EMOTION")
+            self.transition("EMOTION")
         
         elif self.state == "EMOTION":
-            return self.transition("EMOTION_VERIFIER")
+            self.transition("EMOTION_VERIFIER")
             
         elif self.state == "EMOTION_VERIFIER":
             if self.response == 'Yes':
                 if self.emotion == 'Negative':
-                    return self.transition("EVENT")             #Recommend Exc 7, 15, 16
+                    self.transition("EVENT")             #Recommend Exc 7, 15, 16
                 if self.emotion == 'Antisocial':
-                    return self.transition("EVENT")             #Recommend Exc 17, 18
+                    self.transition("EVENT")             #Recommend Exc 17, 18
                 if self.emotion == 'Positive':
-                    return self.transition("ASK_EXERCISE")      #Recommend Exc 7, 8, 12, 13, 14, 15, 17, 18, 19, 21, 22, 23, 26
+                    self.transition("ASK_EXERCISE")      #Recommend Exc 7, 8, 12, 13, 14, 15, 17, 18, 19, 21, 22, 23, 26
             if self.response == 'No':
-                return self.transition("EMOTION_CORRECTION")
+                self.transition("EMOTION_CORRECTION")
             
         elif self.state == "EMOTION_CORRECTION":
-            return self.transition("EVENT")
+            self.transition("EVENT")
         
         elif self.state == "EVENT":
             if self.response == 'Yes':
-                return self.transition("ASK_EVENT_RECENT")
+                self.transition("ASK_EVENT_RECENT")
             if self.response == 'No':
-                return self.transition("ADDITIONAL")        #Recommend Exc 9
+                self.transition("ADDITIONAL")        #Recommend Exc 9
 
         elif self.state == "ASK_EVENT_RECENT":              
             if self.response == 'Yes':
-                return self.transition("ADDITIONAL")        #Recommend Exc 9
+                self.transition("ADDITIONAL")        #Recommend Exc 9
             if self.response == 'No':
-                return self.transition("EXC10")
+                self.transition("EXC10")
         
         elif self.state == "EXC10":
             if self.response == 'Yes':
-                return self.transition("ADDITIONAL")        #Recommend Exc 15
+                self.transition("ADDITIONAL")        #Recommend Exc 15
             if self.response == 'No':
-                return self.transition("ADDITIONAL")        #Recommend Exc 10
+                self.transition("ADDITIONAL")        #Recommend Exc 10
         
         elif self.state == "ADDITIONAL":
             if self.response == 'Yes':
-                return self.transition("ASK_QUESTION")                      # Before that check if advance exercises are appropriate for user     
+                self.transition("ASK_QUESTION")                      # Before that check if advance exercises are appropriate for user     
             if self.response == 'No':
-                return self.transition("INVITE_TO_PROJECT")                 #Recommend Exc 15
+                self.transition("INVITE_TO_PROJECT")                 #Recommend Exc 15
             
         elif self.state == "ASK_QUESTION":
             if self.response == 'Yes':
-                return self.transition("INVITE_TO_PROJECT")             # Recommend relevant exercises
+                self.transition("INVITE_TO_PROJECT")             # Recommend relevant exercises
             if self.response == 'No':
-                return self.transition("ASK_QUESTION")                  # Ask a different question
+                self.transition("ASK_QUESTION")                  # Ask a different question
         
         elif self.state == "ASK_EXERCISE":
             if self.response == 'Yes':
-                return self.transition("SUGGESTION")
+                self.transition("SUGGESTION")
             if self.response == 'No':
-                return self.transition("THANKS")
+                self.transition("THANKS")
             
         elif self.state == "INVITE_TO_PROJECT":
-            return self.transition("SUGGESTION")
+            self.transition("SUGGESTION")
             
         elif self.state == "SUGGESTION":
-            return self.transition("INVITE_TO_ATTEMPT_EXC")
+            self.transition("INVITE_TO_ATTEMPT_EXC")
         
         elif self.state == "INVITE_TO_ATTEMPT_EXC":
             if self.response == 'Yes':
-                return self.transition("FEEDBACK")
+                self.transition("FEEDBACK")
             if self.response == 'No':
-                return self.transition("THANKS")
+                self.transition("THANKS")
         
         elif self.state == "FEEDBACK":
-            return self.transition("LIKE_ANOTHER_EXERCSISE")
+            self.transition("LIKE_ANOTHER_EXERCSISE")
         
         elif self.state == "LIKE_ANOTHER_EXERCSISE":
             if self.response == 'Yes':
-                return self.transition("SUGGESTION")
+                self.transition("SUGGESTION")
             if self.response == 'No':
-                return self.transition("THANKS")
+                self.transition("THANKS")
         
         elif self.state == "THANKS":
-            return self.transition("END")
+            self.transition("END")
         
         elif self.state == "END":
             print("State machine has reached the end.")
-            return "Done"
+        
+        return response
         
     def set_emotion(self, emotion):
         self.emotion = emotion
