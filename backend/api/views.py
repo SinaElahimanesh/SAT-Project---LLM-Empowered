@@ -7,6 +7,8 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from .models import Message
 from .serializers import UserSerializer, MessageSerializer
 from .bot.utils import StateMachine
+from rest_framework.decorators import api_view
+from .bot.Memory.LLM_Memory import MemoryManager
 
 class RegisterView(APIView):
     def post(self, request):
@@ -36,6 +38,7 @@ class MessageView(APIView):
     def post(self, request):
         # user = request.user
         text = request.data.get('text')
+        user = request.user
         # latest_message = Message.objects.filter(user=user).order_by('-timestamp').first()
         # session_id = latest_message.session_id if latest_message and (timezone.now() - latest_message.timestamp).seconds < 300 else (latest_message.session_id + 1 if latest_message else 1)
         
@@ -43,6 +46,45 @@ class MessageView(APIView):
         # message = Message.objects.create(user=user, text=text, session_id=session_id)
 
         # State machine logic
-        response_text = self.state_machine.execute_state(text)
+        response_text = self.state_machine.execute_state(text, user)
 
         return Response({"response": response_text}, status=200)
+
+memory_manager = MemoryManager()
+
+@api_view(['GET'])
+def get_chat_history(request):
+    history = memory_manager.get_chat_history(request.user)
+    return Response({
+        'messages': [
+            {
+                'text': msg.text,
+                'is_user': msg.is_user,
+                'timestamp': msg.timestamp
+            } for msg in history
+        ]
+    })
+
+@api_view(['GET'])
+def get_memory(request):
+    memory = memory_manager.get_current_memory(request.user)
+    return Response({'memory': memory})
+
+# @api_view(['POST'])
+# def add_message(request):
+#     # Add user message
+#     memory_manager.add_message(
+#         user=request.user,
+#         text=request.data['message'],
+#         is_user=True
+#     )
+    
+#     # Add LLM response (you'll need to generate this)
+#     llm_response = "Your LLM response here"
+#     memory_manager.add_message(
+#         user=request.user,
+#         text=llm_response,
+#         is_user=False
+#     )
+    
+#     return Response({'response': llm_response})

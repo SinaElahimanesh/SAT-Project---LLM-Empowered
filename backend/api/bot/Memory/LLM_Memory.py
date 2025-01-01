@@ -1,92 +1,114 @@
+from backend.api.models import Message, UserMemoryState
 from backend.api.bot.gpt_for_summarization import openai_req_generator
-from json import json
+from django.db.models import Max
 
 def summarize_conversation(text, context):
     system_prompt = f"""
     با توجه به پیش‌زمینه‌ای که از مکالمه موجود است و به شرح زیر است:
     {context}،
-    این متن را خلاصه کنید:
+    اطلاعات خلاصه را بروز کنید و این اطلاعات جدید که در زیر آمده است را به خلاصه‌ی پیشین اضافه کنید:
     {text}
 
-    در خلاصه‌سازی خود، به احساسات کاربر، اطلاعات شخصی کاربر، حالات روحی کاربر، وقایعی که اخیرا برای او رخ داده است و غیره، توجه ویژه داشته باشید.
+    در خلاصه‌سازی نهایی خود بر اساس اطلاعات جدید و خلاصه‌ی پیشین، به احساسات کاربر، اطلاعات شخصی کاربر، حالات روحی کاربر، وقایعی که اخیرا برای او رخ داده است و غیره، توجه ویژه داشته باشید.
     """
     return openai_req_generator(system_prompt=system_prompt, json_output=False, temperature=0.1)
 
-class UserMemory:
-    def __init__(self, user_id):
-        self.user_id = user_id
-        self.conversation_history = []
-        self.active_session_history = []
-        self.summary = ""
-
-    def add_message(self, user_message, llm_response):
-        self.conversation_history.append({"user": user_message, "llm": llm_response})
-        self.active_session_history.append({"user": user_message, "llm": llm_response})
-
-    def update_summary(self):
-        active_conversation = "\n".join([f"User: {msg['user']}\nLLM: {msg['llm']}" for msg in self.active_session_history])
-        self.summary = summarize_conversation(text=active_conversation, context=self.summary)
-
-    def get_full_history(self):
-        return self.conversation_history
-
-    def get_summary(self):
-        return self.summary
-    
-    def exit_session(self):
-        self.update_summary()
-        file_path = "memory.json"
-
-        with open(file_path, "r") as json_file:
-            data = json.load(json_file)
-
-        data.update(self.conversation_history)  
-
-        with open(file_path, "w") as json_file:
-            json.dump(data, json_file, indent=4)
-
-        self.active_session_history = []
-
 class MemoryManager:
     def __init__(self):
-        self.user_memories = {}
+        pass
 
-    def get_user_memory(self, user_id):
-        if user_id not in self.user_memories:
-            self.user_memories[user_id] = UserMemory(user_id)
-        return self.user_memories[user_id]
+    def get_or_create_memory_state(self, user):
+        memory_state, created = UserMemoryState.objects.get_or_create(user=user)
+        return memory_state
 
-    def add_user_message(self, user_id, user_message, llm_response):
-        user_memory = self.get_user_memory(user_id)
-        user_memory.add_message(user_message, llm_response)
+    def add_message(self, user, text, is_user=True):
+        # Get the current session ID or create new one
+        current_session = Message.objects.filter(user=user).aggregate(Max('session_id'))['session_id__max']
+        session_id = (current_session or 0) + 1 if is_user else current_session
 
-    def get_full_history(self, user_id):
-        user_memory = self.get_user_memory(user_id)
-        return user_memory.get_full_history()
+        # Create and save the message
+        message = Message.objects.create(
+            user=user,
+            text=text,
+            session_id=session_id,
+            is_user=is_user
+        )
+        return message
 
-    def get_summary(self, user_id):
-        user_memory = self.get_user_memory(user_id)
-        return user_memory.get_summary()
-    
-    def exit_session(self, user_id):
-        user_memory = self.get_user_memory(user_id)
+    def get_unprocessed_messages(self, user):
+        memory_state = self.get_or_create_memory_state(user)
+        last_processed = memory_state.last_processed_message
 
-        return user_memory.exit_session()
+        if last_processed:
+            return Message.objects.filter(
+                user=user,
+                timestamp__gt=last_processed.timestamp
+            ).order_by('timestamp')
+        return Message.objects.filter(user=user).order_by('timestamp')
 
-# Example usage
-if __name__ == "__main__":
-    memory_manager = MemoryManager()
+    def update_memory(self, user):
+        memory_state = self.get_or_create_memory_state(user)
+        unprocessed_messages = self.get_unprocessed_messages(user)
+        
+        if not unprocessed_messages.exists():
+            return memory_state.current_memory
 
-    user_1_id = "user_1"
+        # Format messages for summarization
+        conversation = "\n".join([
+            f"{'User' if msg.is_user else 'LLM'}: {msg.text}" 
+            for msg in unprocessed_messages
+        ])
 
-    user_memory = memory_manager.get_user_memory(user_1_id)
+        # Update the memory using LLM
+        updated_memory = summarize_conversation(
+            text=conversation,
+            context=memory_state.current_memory
+        )
 
-    memory_manager.add_user_message(user_1_id, "Hi, how are you?", "I'm great, thank you!")
-    memory_manager.add_user_message(user_1_id, "Tell me something interesting.", "Did you know that honey never spoils?")
+        # Update the memory state
+        memory_state.current_memory = updated_memory
+        memory_state.last_processed_message = unprocessed_messages.last()
+        memory_state.save()
 
+        return updated_memory
 
-    print(f"User 1's full conversation history:")
-    print(memory_manager.get_full_history(user_1_id))
+    def get_chat_history(self, user, session_id=None):
+        query = Message.objects.filter(user=user)
+        if session_id is not None:
+            query = query.filter(session_id=session_id)
+        return query.order_by('timestamp')
 
-    print("\nUser 1's current summary:")
-    print(memory_manager.get_summary(user_1_id))
+    def get_current_memory(self, user):
+        memory_state = self.get_or_create_memory_state(user)
+        return memory_state.current_memory
+
+    def end_session(self, user):
+        self.update_memory(user)
+
+    def format_memory_for_prompt(self, user):
+        # Get current memory state
+        memory_state = self.get_or_create_memory_state(user)
+        current_memory = memory_state.current_memory or ""
+        
+        # Get unprocessed messages
+        unprocessed = self.get_unprocessed_messages(user)
+        unprocessed_text = "\n".join([
+            f"{'کاربر' if msg.is_user else 'دستیار'}: {msg.text}" 
+            for msg in unprocessed
+        ])
+        
+        # Combine current memory with unprocessed messages
+        if unprocessed_text:
+            formatted_memory = f"""
+                            پیش‌زمینه مکالمه:
+                            {current_memory}
+
+                            پیام‌های اخیر:
+                            {unprocessed_text}
+                            """
+        else:
+            formatted_memory = f"""
+                        پیش‌زمینه مکالمه:
+                        {current_memory}
+                        """     
+        return formatted_memory.strip()

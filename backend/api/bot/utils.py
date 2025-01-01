@@ -1,10 +1,12 @@
 import os
 from api.bot.gpt import openai_req_generator
+from api.bot.Memory.LLM_Memory import MemoryManager
 
 class StateMachine:
     def __init__(self):
         self.state = "GREETING"  
         self.loop_count = 0
+        self.memory_manager = MemoryManager()
     
     def transition(self, new_state):
         print(f"Transitioning from {self.state} to {new_state}")
@@ -13,45 +15,37 @@ class StateMachine:
         self.response = 'Yes'
         self.loop_count = 0
 
-    def state_handler(self, message):
-        # if self.loop_count < 5:
-        #     return "صحبت آزاد - Open-Ended Conversation"
+    def ask_llm(self, prompt_file, message, user):
+        with open(f'api/bot/Prompts/{prompt_file}', "r", encoding="utf-8") as file:
+            system_prompt = file.read()   
+            memory_context = self.memory_manager.format_memory_for_prompt(user)
+            if memory_context != "":
+                system_prompt = system_prompt.format(memory=memory_context)
+        
+        return openai_req_generator(system_prompt=system_prompt, user_prompt=message, json_output=False, temperature=0.1)
+
+    def state_handler(self, message, user):
     
         if self.state == "GREETING":
-            with open('api/bot/Prompts/greeting.md', "r", encoding="utf-8") as file:
-                system_prompt = file.read()
-            return openai_req_generator(system_prompt=system_prompt, user_prompt=message, json_output=False, temperature=0.1)
+            return self.ask_llm("greeting.md", message)
 
-        elif self.state == "NAME":
-            with open('api/bot/Prompts/name.md', "r", encoding="utf-8") as file:
-                system_prompt = file.read()
-            return openai_req_generator(system_prompt=system_prompt, user_prompt=message, json_output=False, temperature=0.1)
+        # elif self.state == "NAME":
+        #     return self.ask_llm("name.md", message)
 
-        elif self.state == "FORMALITY":
-            with open('api/bot/Prompts/formality.md', "r", encoding="utf-8") as file:
-                system_prompt = file.read()
-            return openai_req_generator(system_prompt=system_prompt, user_prompt=message, json_output=False, temperature=0.1)
-
+        # elif self.state == "FORMALITY":
+        #     return self.ask_llm("formality.md", message)
 
         elif self.state == "EMOTION":
-            with open('api/bot/Prompts/emotion.md', "r", encoding="utf-8") as file:
-                system_prompt = file.read()
-            return openai_req_generator(system_prompt=system_prompt, user_prompt=message, json_output=False, temperature=0.1)
+            return self.ask_llm("emotion.md", message, user)
         
         elif self.state == "EMOTION_VERIFIER":
-            with open('api/bot/Prompts/emotion_verifier.md', "r", encoding="utf-8") as file:
-                system_prompt = file.read()
-            return openai_req_generator(system_prompt=system_prompt, user_prompt=message, json_output=False, temperature=0.1)
+            return self.ask_llm("emotion_verifier.md", message, user)
         
         elif self.state == "EMOTION_CORRECTION":
-            with open('api/bot/Prompts/emotion_correction.md', "r", encoding="utf-8") as file:
-                system_prompt = file.read()
-            return openai_req_generator(system_prompt=system_prompt, user_prompt=message, json_output=False, temperature=0.1)
+            return self.ask_llm("emotion_correction.md", message, user)
         
         elif self.state == "EVENT":
-            with open('api/bot/Prompts/event.md', "r", encoding="utf-8") as file:
-                system_prompt = file.read()
-            return openai_req_generator(system_prompt=system_prompt, user_prompt=message, json_output=False, temperature=0.1)
+            return self.ask_llm("event.md", message, user)
         
         elif self.state == "ASK_EVENT_RECENT":
             return "آیا این اتفاق به تازگی برایت رخ داده؟"
@@ -78,10 +72,13 @@ class StateMachine:
         elif self.state == "END":
             return "روز خوبی داشته باشی"
 
-    def execute_state(self, message):
+    def execute_state(self, message, user):
         print(f"You are in the {self.state} state")
-        response = self.state_handler(message)
+        response = self.state_handler(message, user)
         print(response)
+        # update memory
+        self.memory_manager.add_message(user=user, text=message, is_user=True)
+        self.memory_manager.add_message(user=user, text=response, is_user=False)
 
         if self.loop_count < 5:
             self.loop_count += 1
