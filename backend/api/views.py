@@ -48,9 +48,9 @@ class MessageView(APIView):
         # message = Message.objects.create(user=user, text=text, session_id=session_id)
 
         # State machine logic
-        response_text = self.state_machine.execute_state(text, user)
+        response_text, recommendations = self.state_machine.execute_state(text, user)
 
-        return Response({"response": response_text}, status=200)
+        return Response({"response": response_text, "recommendations": recommendations}, status=200)
 
 memory_manager = MemoryManager()
 

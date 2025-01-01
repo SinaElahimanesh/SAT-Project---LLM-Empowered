@@ -1,6 +1,7 @@
 import os
 from api.bot.gpt import openai_req_generator
 from api.bot.Memory.LLM_Memory import MemoryManager
+from api.bot.gpt_recommendations import create_recommendations
 
 class StateMachine:
     def __init__(self):
@@ -25,57 +26,64 @@ class StateMachine:
         return openai_req_generator(system_prompt=system_prompt, user_prompt=message, json_output=False, temperature=0.1)
 
     def state_handler(self, message, user):
-    
+        
         if self.state == "GREETING":
-            return self.ask_llm("greeting.md", message, user)
+            response = self.ask_llm("greeting.md", message, user)
+            return response, create_recommendations(response)
 
         elif self.state == "NAME":
-            return self.ask_llm("name.md", message, user)
+            response = self.ask_llm("name.md", message, user)
+            return response, create_recommendations(response)
 
         elif self.state == "FORMALITY":
-            return self.ask_llm("formality.md", message, user)
+            response = self.ask_llm("formality.md", message, user)
+            return response, create_recommendations(response)
 
         elif self.state == "EMOTION":
-            return self.ask_llm("emotion.md", message, user)
+            response = self.ask_llm("emotion.md", message, user)
+            return response, create_recommendations(response)
         
         elif self.state == "EMOTION_VERIFIER":
-            return self.ask_llm("emotion_verifier.md", message, user)
+            response = self.ask_llm("emotion_verifier.md", message, user)
+            return response, create_recommendations(response)
         
         elif self.state == "EMOTION_CORRECTION":
-            return self.ask_llm("emotion_correction.md", message, user)
+            response = self.ask_llm("emotion_correction.md", message, user)
+            return response, create_recommendations(response)
         
         elif self.state == "EVENT":
-            return self.ask_llm("event.md", message, user)
+            response = self.ask_llm("event.md", message, user)
+            return response, create_recommendations(response)
         
         elif self.state == "ASK_EVENT_RECENT":
-            return "آیا این اتفاق به تازگی برایت رخ داده؟"
+            return "آیا این اتفاق به تازگی برایت رخ داده؟", []
         elif self.state == "EXC10":
-            return "آیا تمرین ۱۰ را برای خودت تاثیر گذار دونستی؟"
+            return "آیا تمرین ۱۰ را برای خودت تاثیر گذار دونستی؟", []
         elif self.state == "ADDITIONAL":
-            return "آیا چیزی دیگه‌ای هست که بخواهی اضافه کنی؟"
+            return "آیا چیزی دیگه‌ای هست که بخواهی اضافه کنی؟", []
         elif self.state == "ASK_QUESTION":
-            return "از تو یک سوال دیگر می‌پرسم."
+            return "از تو یک سوال دیگر می‌پرسم.", []
         elif self.state == "INVITE_TO_PROJECT":
-            return "من تو را به دلبستگی به خود دعوت می‌کنم."
+            return "من تو را به دلبستگی به خود دعوت می‌کنم.", []
         elif self.state == "ASK_EXERCISE":
-            return "آیا دوست داری تمرینی برای بهتر شدن حالت بشنوی؟"
+            return "آیا دوست داری تمرینی برای بهتر شدن حالت بشنوی؟", []
         elif self.state == "SUGGESTION":
-            return "من این تمرین رو پیشنهاد می‌کنم که انجام بدی."
+            return "من این تمرین رو پیشنهاد می‌کنم که انجام بدی.", []
         elif self.state == "INVITE_TO_ATTEMPT_EXC":
-            return "آیا می‌توانی این تمرین را انجام دهی؟"
+            return "آیا می‌توانی این تمرین را انجام دهی؟", []
         elif self.state == "FEEDBACK":
-            return "آیا حالت بهتر شده؟"
+            return "آیا حالت بهتر شده؟", []
         elif self.state == "LIKE_ANOTHER_EXERCSISE":
-            return "آیا می‌خواهی یک تمرین دیگر به تو پیشنهاد کنم؟"
+            return "آیا می‌خواهی یک تمرین دیگر به تو پیشنهاد کنم؟", []
         elif self.state == "THANKS":
-            return "خیلی ممنون که صحبت کردی، امیدوارم بهت کمک کرده باشم."
+            return "خیلی ممنون که صحبت کردی، امیدوارم بهت کمک کرده باشم.", []
         elif self.state == "END":
-            return "روز خوبی داشته باشی"
+            return "روز خوبی داشته باشی", []
 
     def execute_state(self, message, user):
         print(f"You are in the {self.state} state")
-        response = self.state_handler(message, user)
-        print(response)
+        response, recommendations = self.state_handler(message, user)
+        print(response, recommendations)
         # update memory
         self.memory_manager.add_message(user=user, text=message, is_user=True)
         self.memory_manager.add_message(user=user, text=response, is_user=False)
@@ -172,7 +180,7 @@ class StateMachine:
         elif self.state == "END":
             print("State machine has reached the end.")
         
-        return response
+        return response, recommendations
         
     def set_emotion(self, emotion):
         self.emotion = emotion
