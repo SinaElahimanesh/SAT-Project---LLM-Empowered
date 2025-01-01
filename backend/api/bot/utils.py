@@ -1,6 +1,7 @@
 import os
 from api.bot.gpt import openai_req_generator
 from api.bot.Memory.LLM_Memory import MemoryManager
+from api.bot.gpt_recommendations import create_recommendations
 
 class StateMachine:
     def __init__(self):
@@ -38,27 +39,34 @@ class StateMachine:
 
     def state_handler(self, message, user):
         user_state = self.get_user_state(user)
-        
+            
         if user_state['state'] == "GREETING":
-            return self.ask_llm("greeting.md", message, user)
+            response = self.ask_llm("greeting.md", message, user)
+            return response, create_recommendations(response)
 
         elif user_state['state'] == "NAME":
-            return self.ask_llm("name.md", message, user)
+            response = self.ask_llm("name.md", message, user)
+            return response, create_recommendations(response)
 
         elif user_state['state'] == "FORMALITY":
-            return self.ask_llm("formality.md", message, user)
+            response = self.ask_llm("formality.md", message, user)
+            return response, create_recommendations(response)
 
         elif user_state['state'] == "EMOTION":
-            return self.ask_llm("emotion.md", message, user)
+            response = self.ask_llm("emotion.md", message, user)
+            return response, create_recommendations(response)
         
         elif user_state['state'] == "EMOTION_VERIFIER":
-            return self.ask_llm("emotion_verifier.md", message, user)
+            response = self.ask_llm("emotion_verifier.md", message, user)
+            return response, create_recommendations(response)
         
         elif user_state['state'] == "EMOTION_CORRECTION":
-            return self.ask_llm("emotion_correction.md", message, user)
+            response = self.ask_llm("emotion_correction.md", message, user)
+            return response, create_recommendations(response)
         
         elif user_state['state'] == "EVENT":
-            return self.ask_llm("event.md", message, user)
+            response = self.ask_llm("event.md", message, user)
+            return response, create_recommendations(response)
         
         # elif self.state == "ASK_EVENT_RECENT":
         #     return "آیا این اتفاق به تازگی برایت رخ داده؟"
@@ -88,8 +96,8 @@ class StateMachine:
     def execute_state(self, message, user):
         user_state = self.get_user_state(user)
         print(f"You are in the {user_state['state']} state")
-        response = self.state_handler(message, user)
-        print(response)
+        response, recommendations = self.state_handler(message, user)
+        print(response, recommendations)
         
         # update memory and increment message count
         self.memory_manager.add_message(user=user, text=message, is_user=True)
@@ -193,7 +201,7 @@ class StateMachine:
         elif user_state['state'] == "END":
             print("State machine has reached the end.")
         
-        return response
+        return response, recommendations
         
     def set_emotion(self, emotion, user):
         user_state = self.get_user_state(user)
