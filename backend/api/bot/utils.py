@@ -29,11 +29,11 @@ class StateMachine:
         if self.state == "GREETING":
             return self.ask_llm("greeting.md", message, user)
 
-        # elif self.state == "NAME":
-        #     return self.ask_llm("name.md", message)
+        elif self.state == "NAME":
+            return self.ask_llm("name.md", message, user)
 
-        # elif self.state == "FORMALITY":
-        #     return self.ask_llm("formality.md", message)
+        elif self.state == "FORMALITY":
+            return self.ask_llm("formality.md", message, user)
 
         elif self.state == "EMOTION":
             return self.ask_llm("emotion.md", message, user)
