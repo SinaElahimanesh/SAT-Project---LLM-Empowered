@@ -25,6 +25,7 @@ class LoginView(APIView):
         user = authenticate(username=username, password=password)
         if user:
             refresh = RefreshToken.for_user(user)
+            print(user, type(user))
             return Response({
                 'refresh': str(refresh),
                 'access': str(refresh.access_token),
@@ -32,13 +33,14 @@ class LoginView(APIView):
         return Response({"error": "Invalid credentials"}, status=400)
 
 class MessageView(APIView):
-    # permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated]
     state_machine = StateMachine()
 
     def post(self, request):
         # user = request.user
         text = request.data.get('text')
         user = request.user
+        print(user)
         # latest_message = Message.objects.filter(user=user).order_by('-timestamp').first()
         # session_id = latest_message.session_id if latest_message and (timezone.now() - latest_message.timestamp).seconds < 300 else (latest_message.session_id + 1 if latest_message else 1)
         

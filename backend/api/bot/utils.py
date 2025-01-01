@@ -27,7 +27,7 @@ class StateMachine:
     def state_handler(self, message, user):
     
         if self.state == "GREETING":
-            return self.ask_llm("greeting.md", message)
+            return self.ask_llm("greeting.md", message, user)
 
         # elif self.state == "NAME":
         #     return self.ask_llm("name.md", message)

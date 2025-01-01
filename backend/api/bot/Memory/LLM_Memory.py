@@ -1,5 +1,5 @@
-from backend.api.models import Message, UserMemoryState
-from backend.api.bot.gpt_for_summarization import openai_req_generator
+from api.models import Message, UserMemoryState
+from api.bot.gpt_for_summarization import openai_req_generator
 from django.db.models import Max
 
 def summarize_conversation(text, context):
@@ -18,6 +18,7 @@ class MemoryManager:
         pass
 
     def get_or_create_memory_state(self, user):
+        print(user, type(user))
         memory_state, created = UserMemoryState.objects.get_or_create(user=user)
         return memory_state
 
