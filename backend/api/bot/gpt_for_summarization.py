@@ -1,9 +1,11 @@
-import openai
+import os
 from openai import OpenAI
+from dotenv import load_dotenv
+
+load_dotenv()
 
 client = OpenAI(
-    # This is the default and can be omitted
-    api_key='' 
+    api_key=os.getenv('OPENAI_API_KEY'),
 )
 
 def openai_req_generator(system_prompt, json_output=False, temperature=0.01):

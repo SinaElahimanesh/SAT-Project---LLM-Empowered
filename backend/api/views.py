@@ -7,8 +7,12 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from .models import Message
 from .serializers import UserSerializer, MessageSerializer
 from .bot.utils import StateMachine
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, permission_classes
 from .bot.Memory.LLM_Memory import MemoryManager
+
+# Create shared instances at module level
+state_machine = StateMachine()
+memory_manager = MemoryManager()
 
 class RegisterView(APIView):
     def post(self, request):
@@ -34,7 +38,6 @@ class LoginView(APIView):
 
 class MessageView(APIView):
     permission_classes = [IsAuthenticated]
-    state_machine = StateMachine()
 
     def post(self, request):
         # user = request.user
@@ -47,14 +50,13 @@ class MessageView(APIView):
         # Save message
         # message = Message.objects.create(user=user, text=text, session_id=session_id)
 
-        # State machine logic
-        response_text = self.state_machine.execute_state(text, user)
+        # State machine logic using shared instance
+        response_text = state_machine.execute_state(text, user)
 
         return Response({"response": response_text}, status=200)
 
-memory_manager = MemoryManager()
-
 @api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def get_chat_history(request):
     history = memory_manager.get_chat_history(request.user)
     return Response({
@@ -68,6 +70,7 @@ def get_chat_history(request):
     })
 
 @api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def get_memory(request):
     memory = memory_manager.get_current_memory(request.user)
     return Response({'memory': memory})
@@ -90,3 +93,10 @@ def get_memory(request):
 #     )
     
 #     return Response({'response': llm_response})
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def end_session(request):
+    """Handle browser close or explicit session end"""
+    state_machine.handle_session_end(request.user)
+    return Response({'status': 'success'}, status=200)
