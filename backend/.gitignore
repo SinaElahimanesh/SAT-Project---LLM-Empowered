@@ -91,3 +91,4 @@ db.sqlite3
 backend/__pycache__/
 
 api/bot/__pycache__/
+venv
