@@ -27,16 +27,24 @@ class LLM:
 
 
 class OpenAILLM(LLM):
-    def __init__(self, api_key: str, model: str = "gpt-4o-mini") -> None:
-        if not api_key:
-            api_key = os.getenv('OPENAI_API_KEY'),
+    def __init__(self, model: str = "gpt-4o-mini") -> None:
+        api_key = os.getenv('OPENAI_API_KEY'),
         self.client = OpenAI(api_key=api_key)
+        self.temperature = 0.01
         self.model = model
 
-    def chat(self, messages: list[Message]) -> str:
+    def read_prompt(self, prompt_file: str) -> str:
+        with open(f'api/bot/Prompts/{prompt_file}', "r", encoding="utf-8") as file:
+            return file.read() 
+
+    def chat(self, system_message: str, user_message: str) -> str:
         response = self.client.chat.completions.create(
             model=self.model,
-            messages=messages,
+            messages=[
+                {"role": "system", "content": system_message},
+                {"role": "user", "content": user_message}
+            ],
+            temperature=self.temperature
         )
         return response.choices[0].message['content']
 
@@ -47,6 +55,9 @@ class OpenAILLM(LLM):
             response_format=response_format,
         )
         return response.choices[0].message.parsed
+    
+    def emotion_retriever(self, user_message: str) -> str:
+        return self.chat(system_message=self.read_prompt("emotion_retriever.md"), user_message=user_message)
 
 
 class OpenAIBatchILLM(LLM):
@@ -112,7 +123,7 @@ class OpenAIBatchILLM(LLM):
             endpoint="/v1/chat/completions",
             completion_window="24h",
             metadata={
-                "description": "nightly eval job"
+                "description": "Eval Job"
             }
         )
         self.batch = batch.id

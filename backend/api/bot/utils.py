@@ -2,11 +2,13 @@ import os
 from api.bot.gpt import openai_req_generator
 from api.bot.Memory.LLM_Memory import MemoryManager
 from api.bot.gpt_recommendations import create_recommendations
+from api.bot.gpt_for_comprehension import OpenAILLM
 
 class StateMachine:
     def __init__(self):
         self.user_states = {}  # Dictionary to store per-user state
         self.memory_manager = MemoryManager()
+        self.openai_llm = OpenAILLM(model="gpt-4o-mini")
     
     def get_user_state(self, user):
         """Get or create state for a specific user"""
@@ -24,8 +26,8 @@ class StateMachine:
         user_state = self.get_user_state(user)
         print(f"Transitioning from {user_state['state']} to {new_state}")
         user_state['state'] = new_state
-        user_state['emotion'] = 'Positive'
-        user_state['response'] = 'Yes'
+        # user_state['emotion'] = 'Positive'
+        # user_state['response'] = 'Yes'
         user_state['loop_count'] = 0
 
     def ask_llm(self, prompt_file, message, user):
@@ -125,6 +127,8 @@ class StateMachine:
             self.transition("EMOTION_VERIFIER", user)
             
         elif user_state['state'] == "EMOTION_VERIFIER":
+            if user_state['emotion'] is None:
+                self.set_emotion(self.openai_llm.emotion_retriever(user_message=message), user)
             if user_state['response'] == 'Yes':
                 if user_state['emotion'] == 'Negative':
                     self.transition("EVENT", user)             #Recommend Exc 7, 15, 16
