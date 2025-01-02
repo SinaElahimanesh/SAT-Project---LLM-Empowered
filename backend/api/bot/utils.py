@@ -95,7 +95,7 @@ class StateMachine:
         elif user_state['state'] == "END":
             return "روز خوبی داشته باشی", []
         else:
-            return "متوجه نشدم", []
+            return "میتونی بیشتر توضیح بدی", []
 
     def execute_state(self, message, user):
         user_state = self.get_user_state(user)
