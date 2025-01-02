@@ -8,6 +8,7 @@ from typing import Literal, TypedDict, Union
 
 from dotenv import load_dotenv
 from openai.lib._parsing import type_to_response_format_param
+from api.bot.gpt import client
 
 
 load_dotenv()
@@ -29,7 +30,7 @@ class LLM:
 class OpenAILLM(LLM):
     def __init__(self, model: str = "gpt-4o-mini") -> None:
         api_key = os.getenv('OPENAI_API_KEY'),
-        self.client = OpenAI(api_key=api_key)
+        self.client = client 
         self.temperature = 0.01
         self.model = model
 
@@ -46,7 +47,7 @@ class OpenAILLM(LLM):
             ],
             temperature=self.temperature
         )
-        return response.choices[0].message['content']
+        return response.choices[0].message.content
 
     def chat_structured(self, messages: list[Message], response_format=BaseModel) -> BaseModel:
         response = self.client.beta.chat.completions.parse(

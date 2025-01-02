@@ -70,30 +70,32 @@ class StateMachine:
             response = self.ask_llm("event.md", message, user)
             return response, create_recommendations(response)
         
-        # elif self.state == "ASK_EVENT_RECENT":
-        #     return "آیا این اتفاق به تازگی برایت رخ داده؟"
-        # elif self.state == "EXC10":
-        #     return "آیا تمرین ۱۰ را برای خودت تاثیر گذار دونستی؟"
-        # elif self.state == "ADDITIONAL":
-        #     return "آیا چیزی دیگه‌ای هست که بخواهی اضافه کنی؟"
-        # elif self.state == "ASK_QUESTION":
-        #     return "از تو یک سوال دیگر می‌پرسم."
-        # elif self.state == "INVITE_TO_PROJECT":
-        #     return "من تو را به دلبستگی به خود دعوت می‌کنم."
-        # elif self.state == "ASK_EXERCISE":
-        #     return "آیا دوست داری تمرینی برای بهتر شدن حالت بشنوی؟"
-        # elif self.state == "SUGGESTION":
-        #     return "من این تمرین رو پیشنهاد می‌کنم که انجام بدی."
-        # elif self.state == "INVITE_TO_ATTEMPT_EXC":
-        #     return "آیا می‌توانی این تمرین را انجام دهی؟"
-        # elif self.state == "FEEDBACK":
-        #     return "آیا حالت بهتر شده؟"
-        # elif self.state == "LIKE_ANOTHER_EXERCSISE":
-        #     return "آیا می‌خواهی یک تمرین دیگر به تو پیشنهاد کنم؟"
-        # elif self.state == "THANKS":
-        #     return "خیلی ممنون که صحبت کردی، امیدوارم بهت کمک کرده باشم."
-        # elif self.state == "END":
-        #     return "روز خوبی داشته باشی"
+        elif user_state['state'] == "ASK_EVENT_RECENT":
+            return "آیا این اتفاق به تازگی برایت رخ داده؟", []
+        elif user_state['state'] == "EXC10":
+            return "آیا تمرین ۱۰ را برای خودت تاثیر گذار دونستی؟", []
+        elif user_state['state'] == "ADDITIONAL":
+            return "آیا چیزی دیگه‌ای هست که بخواهی اضافه کنی؟", []
+        elif user_state['state'] == "ASK_QUESTION":
+            return "از تو یک سوال دیگر می‌پرسم.", []
+        elif user_state['state'] == "INVITE_TO_PROJECT":
+            return "من تو را به دلبستگی به خود دعوت می‌کنم.", []
+        elif user_state['state'] == "ASK_EXERCISE":
+            return "آیا دوست داری تمرینی برای بهتر شدن حالت بشنوی؟", []
+        elif user_state['state'] == "SUGGESTION":
+            return "من این تمرین رو پیشنهاد می‌کنم که انجام بدی.", []
+        elif user_state['state'] == "INVITE_TO_ATTEMPT_EXC":
+            return "آیا می‌توانی این تمرین را انجام دهی؟", []
+        elif user_state['state'] == "FEEDBACK":
+            return "آیا حالت بهتر شده؟", []
+        elif user_state['state'] == "LIKE_ANOTHER_EXERCSISE":
+            return "آیا می‌خواهی یک تمرین دیگر به تو پیشنهاد کنم؟", []
+        elif user_state['state'] == "THANKS":
+            return "خیلی ممنون که صحبت کردی، امیدوارم بهت کمک کرده باشم.", []
+        elif user_state['state'] == "END":
+            return "روز خوبی داشته باشی", []
+        else:
+            return "متوجه نشدم", []
 
     def execute_state(self, message, user):
         user_state = self.get_user_state(user)
@@ -246,6 +248,7 @@ class StateMachine:
     def set_emotion(self, emotion, user):
         user_state = self.get_user_state(user)
         user_state['emotion'] = emotion
+        print(user_state['emotion'])
 
     def set_response(self, response, user):
         user_state = self.get_user_state(user)
