@@ -53,7 +53,7 @@ class MessageView(APIView):
         # State machine logic using shared instance
         response_text, recommendations = state_machine.execute_state(text, user)
 
-        return Response({"response": response_text}, status=200)
+        return Response({"response": response_text, "recommendations":recommendations}, status=200)
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
