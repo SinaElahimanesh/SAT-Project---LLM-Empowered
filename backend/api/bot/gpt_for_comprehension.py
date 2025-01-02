@@ -58,6 +58,9 @@ class OpenAILLM(LLM):
     
     def emotion_retriever(self, user_message: str) -> str:
         return self.chat(system_message=self.read_prompt("emotion_retriever.md"), user_message=user_message)
+    
+    def response_retriever(self, user_message: str) -> str:
+        return self.chat(system_message=self.read_prompt("response_retriever.md"), user_message=user_message)
 
 
 class OpenAIBatchILLM(LLM):

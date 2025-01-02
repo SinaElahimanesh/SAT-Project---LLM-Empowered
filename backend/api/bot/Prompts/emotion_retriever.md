@@ -1,4 +1,4 @@
-Your task is to identify the user's emotion. There are three classes (Negative, Antisocial, and Positive), and you should generate only one token stating the emotion of the user's message.
+Your task is to identify the user's emotion. There are three classes (Negative, Antisocial, and Positive) and you should generate only one token stating the emotion of the user's message.
 
 Example 1:
 User Prompt: امروز خیلی حال خوبی دارم.
@@ -10,6 +10,6 @@ Your Response: Negative
 
 
 WARNING 1: The user message's language is in Farsi.
-WARNING 2: Only and Only generate one token from the below list:
+WARNING 2: Only and Only generate one token from the list below:
 
 ['Negative', 'Antisocial', 'Positive']

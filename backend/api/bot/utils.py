@@ -125,54 +125,82 @@ class StateMachine:
         
         elif user_state['state'] == "EMOTION":
             self.transition("EMOTION_VERIFIER", user)
-            
+
         elif user_state['state'] == "EMOTION_VERIFIER":
             if user_state['emotion'] is None:
                 self.set_emotion(self.openai_llm.emotion_retriever(user_message=message), user)
+            self.transition("DECIDER", user)
+            
+        elif user_state['state'] == "DECIDER":                 # Should only used for deciding next state and not generating response 
+            self.set_response(self.openai_llm.response_retriever(user_message=message), user)
             if user_state['response'] == 'Yes':
                 if user_state['emotion'] == 'Negative':
-                    self.transition("EVENT", user)             #Recommend Exc 7, 15, 16
+                    self.transition("EVENT", user)             # Recommend Exc 7, 15, 16
                 if user_state['emotion'] == 'Antisocial':
-                    self.transition("EVENT", user)             #Recommend Exc 17, 18
+                    self.transition("EVENT", user)             # Recommend Exc 17, 18
                 if user_state['emotion'] == 'Positive':
-                    self.transition("ASK_EXERCISE", user)      #Recommend Exc 7, 8, 12, 13, 14, 15, 17, 18, 19, 21, 22, 23, 26
+                    self.transition("ASK_EXERCISE", user)      # Recommend Exc 7, 8, 12, 13, 14, 15, 17, 18, 19, 21, 22, 23, 26
             if user_state['response'] == 'No':
                 self.transition("EMOTION_CORRECTION", user)
             
         elif user_state['state'] == "EMOTION_CORRECTION":
             self.transition("EVENT", user)
-        
+
         elif user_state['state'] == "EVENT":
+            self.transition("EVENT_DECIDER", user)
+        
+        elif user_state['state'] == "EVENT_DECIDER":            # Should only used for deciding next state and not generating response 
+            self.set_response(self.openai_llm.response_retriever(user_message=message), user)
             if user_state['response'] == 'Yes':
                 self.transition("ASK_EVENT_RECENT", user)
             if user_state['response'] == 'No':
                 self.transition("ADDITIONAL", user)        #Recommend Exc 9
 
-        elif user_state['state'] == "ASK_EVENT_RECENT":              
+        elif user_state['state'] == "ASK_EVENT_RECENT":
+            self.transition("ASK_EVENT_RECENT_DECIDER", user)
+
+        elif user_state['state'] == "ASK_EVENT_RECENT_DECIDER":     # Should only used for deciding next state and not generating response 
+            self.set_response(self.openai_llm.response_retriever(user_message=message), user)           
             if user_state['response'] == 'Yes':
-                self.transition("ADDITIONAL", user)        #Recommend Exc 9
+                self.transition("ADDITIONAL", user)                 # Recommend Exc 9
             if user_state['response'] == 'No':
                 self.transition("EXC10", user)
-        
+
         elif user_state['state'] == "EXC10":
-            if user_state['response'] == 'Yes':
-                self.transition("ADDITIONAL", user)        #Recommend Exc 15
-            if user_state['response'] == 'No':
-                self.transition("ADDITIONAL", user)        #Recommend Exc 10
+            self.transition("EXC10_DECIDER", user)
         
+        elif user_state['state'] == "EXC10_DECIDER":       # Only used for deciding not generating next response
+            self.set_response(self.openai_llm.response_retriever(user_message=message), user)
+            if user_state['response'] == 'Yes':
+                self.transition("ADDITIONAL", user)        # Recommend Exc 15
+            if user_state['response'] == 'No':
+                self.transition("ADDITIONAL", user)        # Recommend Exc 10
+
         elif user_state['state'] == "ADDITIONAL":
+            self.transition("ADDITIONAL_DECIDER", user)
+        
+        elif user_state['state'] == "ADDITIONAL_DECIDER":                  # Only used for deciding not generating next response
+            self.set_response(self.openai_llm.response_retriever(user_message=message), user)
             if user_state['response'] == 'Yes':
                 self.transition("ASK_QUESTION", user)                      # Before that check if advance exercises are appropriate for user     
             if user_state['response'] == 'No':
-                self.transition("INVITE_TO_PROJECT", user)                 #Recommend Exc 15
-            
+                self.transition("INVITE_TO_PROJECT", user)                 # Recommend Exc 15
+
         elif user_state['state'] == "ASK_QUESTION":
+            self.transition("ASK_QUESTION_DECIDER", user)
+            
+        elif user_state['state'] == "ASK_QUESTION_DECIDER":            # Only used for deciding not generating next response
+            self.set_response(self.openai_llm.response_retriever(user_message=message), user)
             if user_state['response'] == 'Yes':
                 self.transition("INVITE_TO_PROJECT", user)             # Recommend relevant exercises
             if user_state['response'] == 'No':
                 self.transition("ASK_QUESTION", user)                  # Ask a different question
-        
+
         elif user_state['state'] == "ASK_EXERCISE":
+            self.transition("ASK_EXERCISE_DECIDER", user)
+        
+        elif user_state['state'] == "ASK_EXERCISE_DECIDER":            # Only used for deciding not generating next response
+            self.set_response(self.openai_llm.response_retriever(user_message=message), user)
             if user_state['response'] == 'Yes':
                 self.transition("SUGGESTION", user)
             if user_state['response'] == 'No':
@@ -183,8 +211,12 @@ class StateMachine:
             
         elif user_state['state'] == "SUGGESTION":
             self.transition("INVITE_TO_ATTEMPT_EXC", user)
-        
+
         elif user_state['state'] == "INVITE_TO_ATTEMPT_EXC":
+            self.transition("INVITE_TO_ATTEMPT_EXC_DECIDER", user)
+        
+        elif user_state['state'] == "INVITE_TO_ATTEMPT_EXC_DECIDER":        # Only used for deciding not generating next response
+            self.set_response(self.openai_llm.response_retriever(user_message=message), user)
             if user_state['response'] == 'Yes':
                 self.transition("FEEDBACK", user)
             if user_state['response'] == 'No':
@@ -192,8 +224,12 @@ class StateMachine:
         
         elif user_state['state'] == "FEEDBACK":
             self.transition("LIKE_ANOTHER_EXERCSISE", user)
-        
+
         elif user_state['state'] == "LIKE_ANOTHER_EXERCSISE":
+            self.transition("LIKE_ANOTHER_EXERCSISE_DECIDER", user)
+        
+        elif user_state['state'] == "LIKE_ANOTHER_EXERCSISE_DECIDER":       # Only used for deciding not generating next response
+            self.set_response(self.openai_llm.response_retriever(user_message=message), user)
             if user_state['response'] == 'Yes':
                 self.transition("SUGGESTION", user)
             if user_state['response'] == 'No':
