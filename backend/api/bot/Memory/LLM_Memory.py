@@ -1,6 +1,7 @@
 from api.models import Message, UserMemoryState
 from api.bot.gpt_for_summarization import openai_req_generator
 from django.db.models import Max
+import time
 
 def summarize_conversation(text, context):
     system_prompt = f"""
@@ -32,7 +33,8 @@ class MemoryManager:
             user=user,
             text=text,
             session_id=session_id,
-            is_user=is_user
+            is_user=is_user,
+            timestamp=time.time()
         )
         return message
 
