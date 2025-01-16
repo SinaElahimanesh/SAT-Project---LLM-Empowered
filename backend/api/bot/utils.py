@@ -44,31 +44,31 @@ class StateMachine:
             
         if user_state['state'] == "GREETING":
             response = self.ask_llm("greeting.md", message, user)
-            return response, create_recommendations(response, self.memory_manager.get_current_memory())
+            return response, create_recommendations(response, self.memory_manager.get_current_memory(user))
 
         elif user_state['state'] == "NAME":
             response = self.ask_llm("name.md", message, user)
-            return response, create_recommendations(response, self.memory_manager.get_current_memory())
+            return response, create_recommendations(response, self.memory_manager.get_current_memory(user))
 
         elif user_state['state'] == "FORMALITY":
             response = self.ask_llm("formality.md", message, user)
-            return response, create_recommendations(response, self.memory_manager.get_current_memory())
+            return response, create_recommendations(response, self.memory_manager.get_current_memory(user))
 
         elif user_state['state'] == "EMOTION":
             response = self.ask_llm("emotion.md", message, user)
-            return response, create_recommendations(response, self.memory_manager.get_current_memory())
+            return response, create_recommendations(response, self.memory_manager.get_current_memory(user))
         
         elif user_state['state'] == "EMOTION_VERIFIER":
             response = self.ask_llm("emotion_verifier.md", message, user)
-            return response, create_recommendations(response, self.memory_manager.get_current_memory())
+            return response, create_recommendations(response, self.memory_manager.get_current_memory(user))
         
         elif user_state['state'] == "EMOTION_CORRECTION":
             response = self.ask_llm("emotion_correction.md", message, user)
-            return response, create_recommendations(response, self.memory_manager.get_current_memory())
+            return response, create_recommendations(response, self.memory_manager.get_current_memory(user))
         
         elif user_state['state'] == "EVENT":
             response = self.ask_llm("event.md", message, user)
-            return response, create_recommendations(response, self.memory_manager.get_current_memory())
+            return response, create_recommendations(response, self.memory_manager.get_current_memory(user))
         
         elif user_state['state'] == "ASK_EVENT_RECENT":
             return "آیا این اتفاق به تازگی برایت رخ داده؟", []
