@@ -26,9 +26,7 @@ class StateMachine:
         user_state = self.get_user_state(user)
         print(f"Transitioning from {user_state['state']} to {new_state}")
         user_state['state'] = new_state
-        # user_state['emotion'] = 'Positive'
-        # user_state['response'] = 'Yes'
-        user_state['loop_count'] = 0
+        # user_state['loop_count'] = 0
 
     def ask_llm(self, prompt_file, message, user):
         with open(f'api/bot/Prompts/{prompt_file}', "r", encoding="utf-8") as file:
@@ -42,16 +40,20 @@ class StateMachine:
     def state_handler(self, message, user):
         user_state = self.get_user_state(user)
             
-        if user_state['state'] == "GREETING":
-            response = self.ask_llm("greeting.md", message, user)
-            return response, create_recommendations(response, self.memory_manager.get_current_memory(user))
+        # if user_state['state'] == "GREETING":
+        #     response = self.ask_llm("greeting.md", message, user)
+        #     return response, create_recommendations(response, self.memory_manager.get_current_memory(user))
 
-        elif user_state['state'] == "NAME":
-            response = self.ask_llm("name.md", message, user)
-            return response, create_recommendations(response, self.memory_manager.get_current_memory(user))
+        # elif user_state['state'] == "NAME":
+        #     response = self.ask_llm("name.md", message, user)
+        #     return response, create_recommendations(response, self.memory_manager.get_current_memory(user))
 
-        elif user_state['state'] == "FORMALITY":
-            response = self.ask_llm("formality.md", message, user)
+        # elif user_state['state'] == "FORMALITY":
+        #     response = self.ask_llm("formality.md", message, user)
+        #     return response, create_recommendations(response, self.memory_manager.get_current_memory(user))
+
+        if user_state['state'] == "GREETING_FORMALITY_NAME":
+            response = self.ask_llm("greeting_formality_name.md", message, user)
             return response, create_recommendations(response, self.memory_manager.get_current_memory(user))
 
         elif user_state['state'] == "EMOTION":
@@ -116,13 +118,16 @@ class StateMachine:
         if user_state['loop_count'] < 5:
             user_state['loop_count'] += 1
 
-        if user_state['state'] == "GREETING":
-            self.transition("FORMALITY", user)    #Need To Save Tone in Memory - Not in SAT Diagram
+        # if user_state['state'] == "GREETING":
+        #     self.transition("FORMALITY", user)    #Need To Save Tone in Memory - Not in SAT Diagram
         
-        elif user_state['state'] == "FORMALITY":            
-            self.transition("NAME", user)         #Need To Name in Memory - Not in SAT Diagram
+        # elif user_state['state'] == "FORMALITY":            
+        #     self.transition("NAME", user)         #Need To Name in Memory - Not in SAT Diagram
         
-        elif user_state['state'] == "NAME":
+        # elif user_state['state'] == "NAME":
+        #     self.transition("EMOTION", user)
+
+        elif user_state['state'] == "GREETING_FORMALITY_NAME":
             self.transition("EMOTION", user)
         
         elif user_state['state'] == "EMOTION":
