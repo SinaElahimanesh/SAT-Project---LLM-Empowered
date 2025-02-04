@@ -99,9 +99,11 @@ class StateMachine:
             return response, create_recommendations(response, self.memory_manager.get_current_memory(user))
         
         elif user_state['state'] == "SUGGESTION":
-            return "من این تمرین رو پیشنهاد می‌کنم که انجام بدی.", []
+            response = self.ask_llm("suggestion.md", message, user)
+            return response, create_recommendations(response, self.memory_manager.get_current_memory(user))
+        
         elif user_state['state'] == "INVITE_TO_ATTEMPT_EXC":
-            response = self.ask_llm("invite_to_attempt_exec.md", message, user)
+            response = self.ask_llm("invite_to_attempt_exc.md", message, user)
             return response, create_recommendations(response, self.memory_manager.get_current_memory(user))
         
         elif user_state['state'] == "FEEDBACK":
@@ -109,11 +111,17 @@ class StateMachine:
             return response, create_recommendations(response, self.memory_manager.get_current_memory(user))
         
         elif user_state['state'] == "LIKE_ANOTHER_EXERCSISE":
-            return "آیا می‌خواهی یک تمرین دیگر به تو پیشنهاد کنم؟", []
+            response = self.ask_llm("like_to_do_another_exec.md", message, user)
+            return response, create_recommendations(response, self.memory_manager.get_current_memory(user))
+        
         elif user_state['state'] == "THANKS":
-            return "خیلی ممنون که صحبت کردی، امیدوارم بهت کمک کرده باشم.", []
+            response = self.ask_llm("thanks.md", message, user)
+            return response, create_recommendations(response, self.memory_manager.get_current_memory(user))
+        
         elif user_state['state'] == "END":
-            return "روز خوبی داشته باشی", []
+            response = self.ask_llm("end.md", message, user)
+            return response, create_recommendations(response, self.memory_manager.get_current_memory(user))
+  
         else:
             return "میتونی بیشتر توضیح بدی", []
 
