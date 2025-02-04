@@ -91,7 +91,9 @@ class StateMachine:
         elif user_state['state'] == "INVITE_TO_PROJECT":
             return "من تو را به دلبستگی به خود دعوت می‌کنم.", []
         elif user_state['state'] == "ASK_EXERCISE":
-            return "آیا دوست داری تمرینی برای بهتر شدن حالت بشنوی؟", []
+            response = self.ask_llm("ask_exercise.md", message, user)
+            return response, create_recommendations(response, self.memory_manager.get_current_memory(user))
+        
         elif user_state['state'] == "SUGGESTION":
             return "من این تمرین رو پیشنهاد می‌کنم که انجام بدی.", []
         elif user_state['state'] == "INVITE_TO_ATTEMPT_EXC":
