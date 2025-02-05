@@ -153,7 +153,7 @@ class StateMachine:
         # elif user_state['state'] == "NAME":
         #     self.transition("EMOTION", user)
 
-        elif user_state['state'] == "GREETING_FORMALITY_NAME":
+        if user_state['state'] == "GREETING_FORMALITY_NAME":
             self.transition("EMOTION", user)
         
         elif user_state['state'] == "EMOTION":
