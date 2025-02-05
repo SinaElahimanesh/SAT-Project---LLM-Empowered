@@ -60,13 +60,13 @@ class StateMachine:
             response = self.ask_llm("emotion.md", message, user)
             return response, create_recommendations(response, self.memory_manager.get_current_memory(user))
         
-        elif user_state['state'] == "EMOTION_VERIFIER":
-            response = self.ask_llm("emotion_verifier.md", message, user)
-            return response, create_recommendations(response, self.memory_manager.get_current_memory(user))
+        # elif user_state['state'] == "EMOTION_VERIFIER":
+        #     response = self.ask_llm("emotion_verifier.md", message, user)
+        #     return response, create_recommendations(response, self.memory_manager.get_current_memory(user))
         
-        elif user_state['state'] == "EMOTION_CORRECTION":
-            response = self.ask_llm("emotion_correction.md", message, user)
-            return response, create_recommendations(response, self.memory_manager.get_current_memory(user))
+        # elif user_state['state'] == "EMOTION_CORRECTION":
+        #     response = self.ask_llm("emotion_correction.md", message, user)
+        #     return response, create_recommendations(response, self.memory_manager.get_current_memory(user))
         
         # elif user_state['state'] == "EVENT":
         #     response = self.ask_llm("event.md", message, user)
@@ -157,24 +157,21 @@ class StateMachine:
             self.transition("EMOTION", user)
         
         elif user_state['state'] == "EMOTION":
-            self.transition("EMOTION_VERIFIER", user)
-
-        elif user_state['state'] == "EMOTION_VERIFIER":
-            if user_state['emotion'] is None:
-                self.set_emotion(self.openai_llm.emotion_retriever(user_message=message), user)
             self.transition("DECIDER", user)
+
+        # elif user_state['state'] == "EMOTION_VERIFIER":
+        #     if user_state['emotion'] is None:
+        #         self.set_emotion(self.openai_llm.emotion_retriever(user_message=message), user)
+        #     self.transition("DECIDER", user)
             
-        elif user_state['state'] == "DECIDER":                 # Should only used for deciding next state and not generating response 
-            self.set_response(self.openai_llm.response_retriever(user_message=message), user)
-            if user_state['response'] == 'Yes':
-                if user_state['emotion'] == 'Negative':
-                    self.transition("EVENT", user)             # Recommend Exc 7, 15, 16
-                if user_state['emotion'] == 'Antisocial':
-                    self.transition("EVENT", user)             # Recommend Exc 17, 18
-                if user_state['emotion'] == 'Positive':
-                    self.transition("ASK_EXERCISE", user)      # Recommend Exc 7, 8, 12, 13, 14, 15, 17, 18, 19, 21, 22, 23, 26
-            if user_state['response'] == 'No':
-                self.transition("EMOTION_CORRECTION", user)
+        elif user_state['state'] == "DECIDER":                           # Should only used for deciding next state and not generating response 
+            self.set_emotion(self.openai_llm.response_retriever(user_message=message), user)
+            if user_state['emotion'] == 'Negative':
+                self.transition("SUPER_STATE_EVENT", user)             # Recommend Exc 7, 15, 16
+            if user_state['emotion'] == 'Antisocial':
+                self.transition("SUPER_STATE_EVENT", user)             # Recommend Exc 17, 18
+            if user_state['emotion'] == 'Positive':
+                    self.transition("ASK_EXERCISE", user)               # Recommend Exc 7, 8, 12, 13, 14, 15, 17, 18, 19, 21, 22, 23, 26
             
         elif user_state['state'] == "EMOTION_CORRECTION":
             self.transition("SUPER_STATE_EVENT", user)
