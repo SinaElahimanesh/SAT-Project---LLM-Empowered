@@ -182,7 +182,7 @@ class StateMachine:
         elif user_state['state'] == "END":
             print("State machine has reached the end.")
         
-        return response, recommendations
+        return response, recommendations, user_state['state']
         
     def set_emotion(self, emotion, user):
         user_state = self.get_user_state(user)
