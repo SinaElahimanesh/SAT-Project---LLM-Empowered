@@ -14,7 +14,7 @@ class StateMachine:
         """Get or create state for a specific user"""
         if user.id not in self.user_states:
             self.user_states[user.id] = {
-                'state': "GREETING",
+                'state': "GREETING_FORMALITY_NAME",
                 'loop_count': 0,
                 'message_count': 0,
                 'emotion': None,
@@ -293,7 +293,7 @@ class StateMachine:
         self.memory_manager.update_memory(user)
         # Reset user state
         self.user_states[user.id] = {
-            'state': "GREETING",
+            'state': "GREETING_FORMALITY_NAME",
             'loop_count': 0,
             'message_count': 0,
             'emotion': None,
