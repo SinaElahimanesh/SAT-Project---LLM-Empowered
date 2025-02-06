@@ -82,4 +82,4 @@ def get_exercise_content(exercise_tuples: List[Tuple[int, float]]) -> List[str]:
             print(f"Exercise file {file_path} not found")
             continue
             
-    return exercise_contents
+    return exercise_contents, [exercise_num for exercise_num, _ in exercise_tuples]
