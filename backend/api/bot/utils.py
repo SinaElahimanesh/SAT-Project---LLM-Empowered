@@ -3,6 +3,7 @@ from api.bot.gpt import openai_req_generator
 from api.bot.Memory.LLM_Memory import MemoryManager
 from api.bot.gpt_recommendations import create_recommendations
 from api.bot.gpt_for_comprehension import OpenAILLM
+from api.bot.gpt_for_statedetection import if_data_sufficient_for_state_change
 
 class StateMachine:
     def __init__(self):
@@ -32,6 +33,8 @@ class StateMachine:
         with open(f'api/bot/Prompts/{prompt_file}', "r", encoding="utf-8") as file:
             system_prompt = file.read()   
             memory_context = self.memory_manager.format_memory_for_prompt(user)
+            with open('debug.md', 'w', encoding="utf-8") as file:
+                file.write(memory_context)
             if memory_context != "":
                 system_prompt = system_prompt.format(memory=memory_context)
         
@@ -146,8 +149,16 @@ class StateMachine:
         if user_state['loop_count'] < 5:
             user_state['loop_count'] += 1
 
-        if user_state['state'] == "GREETING_FORMALITY_NAME":
-            self.transition("EMOTION", user)
+        if user_state['state'] == "GREETING_FORMALITY_NAME": 
+            messages_obj = self.memory_manager.get_chat_history(user)  
+            chat_history = "\n".join([
+                f"{'User' if msg.is_user else 'Assistant'}: {msg.text}" 
+                for msg in messages_obj
+            ])
+            transit = if_data_sufficient_for_state_change("greeting.md", chat_history)
+            print("transit", transit)
+            if transit == "Yes":
+                self.transition("EMOTION", user)
         
         elif user_state['state'] == "EMOTION":
             self.transition("DECIDER", user)
