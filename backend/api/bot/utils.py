@@ -39,6 +39,15 @@ class StateMachine:
                 system_prompt = system_prompt.format(memory=memory_context)
         
         return openai_req_generator(system_prompt=system_prompt, user_prompt=message, json_output=False, temperature=0.1)
+    
+    def if_transition(self, user, data):
+        messages_obj = self.memory_manager.get_chat_history(user)  
+        chat_history = "\n".join([
+            f"{'User' if msg.is_user else 'Assistant'}: {msg.text}" 
+            for msg in messages_obj
+        ])
+        transit = if_data_sufficient_for_state_change(data, chat_history)
+        return transit
 
     def state_handler(self, message, user):
         user_state = self.get_user_state(user)
@@ -150,21 +159,22 @@ class StateMachine:
             user_state['loop_count'] += 1
 
         if user_state['state'] == "GREETING_FORMALITY_NAME": 
-            messages_obj = self.memory_manager.get_chat_history(user)  
-            chat_history = "\n".join([
-                f"{'User' if msg.is_user else 'Assistant'}: {msg.text}" 
-                for msg in messages_obj
-            ])
-            transit = if_data_sufficient_for_state_change("greeting.md", chat_history)
+            transit = self.if_transition(user, "greeting.md")
             print("transit", transit)
-            if transit == "Yes":
+            if transit == "بله":
                 self.transition("EMOTION", user)
         
         elif user_state['state'] == "EMOTION":
-            self.transition("DECIDER", user)
+            transit = self.if_transition(user, "emotion.md")
+            print("transit", transit)
+            if transit == "بله":
+                self.transition("DECIDER", user)
 
         elif user_state['state'] == "SUPER_STATE_EVENT":
-            self.transition("ADDITIONAL", user)
+            transit = self.if_transition(user, "event.md")
+            print("transit", transit)
+            if transit == "بله":
+                self.transition("ADDITIONAL", user)
 
         elif user_state['state'] == "ADDITIONAL":
             self.transition("ASK_EXERCISE", user)
