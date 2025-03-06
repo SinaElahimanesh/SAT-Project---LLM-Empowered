@@ -4,6 +4,8 @@ from api.bot.gpt import openai_req_generator
 
 
 def create_recommendations(bot_message, memory):
+    # Debug
+    return ["", "", ""]
     suggestions = openai_req_generator(f"""You are tasked with assisting in a dialogue between two parties.
                           Given the message from one side, your goal is to generate three concise (each of them less than 3 words) and
                                         actionable suggestions that the other side

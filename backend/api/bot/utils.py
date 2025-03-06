@@ -3,6 +3,7 @@ from api.bot.gpt import openai_req_generator
 from api.bot.Memory.LLM_Memory import MemoryManager
 from api.bot.gpt_recommendations import create_recommendations
 from api.bot.gpt_for_comprehension import OpenAILLM
+from api.bot.gpt_for_statedetection import if_data_sufficient_for_state_change
 
 class StateMachine:
     def __init__(self):
@@ -32,10 +33,21 @@ class StateMachine:
         with open(f'api/bot/Prompts/{prompt_file}', "r", encoding="utf-8") as file:
             system_prompt = file.read()   
             memory_context = self.memory_manager.format_memory_for_prompt(user)
+            with open('debug.md', 'w', encoding="utf-8") as file:
+                file.write(memory_context)
             if memory_context != "":
                 system_prompt = system_prompt.format(memory=memory_context)
         
         return openai_req_generator(system_prompt=system_prompt, user_prompt=message, json_output=False, temperature=0.1)
+    
+    def if_transition(self, user, data):
+        messages_obj = self.memory_manager.get_chat_history(user)  
+        chat_history = "\n".join([
+            f"{'User' if msg.is_user else 'Assistant'}: {msg.text}" 
+            for msg in messages_obj
+        ])
+        transit = if_data_sufficient_for_state_change(data, chat_history)
+        return transit
 
     def state_handler(self, message, user):
         user_state = self.get_user_state(user)
@@ -146,14 +158,23 @@ class StateMachine:
         if user_state['loop_count'] < 5:
             user_state['loop_count'] += 1
 
-        if user_state['state'] == "GREETING_FORMALITY_NAME":
-            self.transition("EMOTION", user)
+        if user_state['state'] == "GREETING_FORMALITY_NAME": 
+            transit = self.if_transition(user, "greeting.md")
+            print("transit", transit)
+            if transit == "بله":
+                self.transition("EMOTION", user)
         
         elif user_state['state'] == "EMOTION":
-            self.transition("DECIDER", user)
+            transit = self.if_transition(user, "emotion.md")
+            print("transit", transit)
+            if transit == "بله":
+                self.transition("DECIDER", user)
 
         elif user_state['state'] == "SUPER_STATE_EVENT":
-            self.transition("ADDITIONAL", user)
+            transit = self.if_transition(user, "event.md")
+            print("transit", transit)
+            if transit == "بله":
+                self.transition("ADDITIONAL", user)
 
         elif user_state['state'] == "ADDITIONAL":
             self.transition("ASK_EXERCISE", user)

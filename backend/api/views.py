@@ -10,6 +10,12 @@ from .bot.utils import StateMachine
 from rest_framework.decorators import api_view, permission_classes
 from .bot.Memory.LLM_Memory import MemoryManager
 
+import os
+from django.http import JsonResponse
+from django.core.files.storage import default_storage
+from django.core.files.base import ContentFile
+from .bot.ASR.ASRPipeline import feed_audio_to_ASR_modal
+
 # Create shared instances at module level
 state_machine = StateMachine()
 memory_manager = MemoryManager()
@@ -100,3 +106,14 @@ def end_session(request):
     """Handle browser close or explicit session end"""
     state_machine.handle_session_end(request.user)
     return Response({'status': 'success'}, status=200)
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def get_audio_message(request):
+    if request.method == "POST" and request.FILES.get("audio"):
+        audio_file = request.FILES["audio"]
+        file_path = default_storage.save("temp_audio.wav", ContentFile(audio_file.read()))
+        audio_path = default_storage.path(file_path)
+        result = feed_audio_to_ASR_modal(audio_path)
+        os.remove(audio_path)  # Cleanup
+        return JsonResponse({"transcription": result})
