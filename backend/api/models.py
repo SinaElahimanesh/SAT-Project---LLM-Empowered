@@ -1,8 +1,22 @@
 from django.contrib.auth.models import AbstractUser
 from django.db import models
+from enum import Enum
+
+class Stage(str, Enum):
+    BEGINNING = "Beginning"
+    INTERMEDIATE = "Intermediate"
+    ADVANCED = "Advanced"
+    
+    @classmethod
+    def choices(cls):
+        return [(key.value, key.name) for key in cls]
 
 class User(AbstractUser):
-    pass
+    stage = models.CharField(
+        max_length=20,
+        choices=Stage.choices(),
+        default=Stage.BEGINNING
+    )
 
 class Message(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="messages")

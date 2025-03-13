@@ -19,7 +19,8 @@ class StateMachine:
                 'loop_count': 0,
                 'message_count': 0,
                 'emotion': None,
-                'response': None
+                'response': None,
+                'stage': user.stage
             }
         return self.user_states[user.id]
 
