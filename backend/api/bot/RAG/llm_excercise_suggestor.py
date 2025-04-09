@@ -7,9 +7,10 @@ import re
 import json
 from openai import OpenAI
 from dotenv import load_dotenv
+import random
 
 # Load exercises from JSON file
-with open('backend/api/bot/RAG/exercises_mapping.json', 'r', encoding='utf-8') as f:
+with open('api/bot/RAG/exercises_mapping.json', 'r', encoding='utf-8') as f:
     exercises = json.load(f)
 
 
@@ -17,7 +18,7 @@ def get_exercise_content(ids):
     exercise_contents = []
     
     for exercise_num in ids:
-        file_path = f'backend/api/bot/RAG/Exercises/exercise{exercise_num}.txt'
+        file_path = f'api/bot/RAG/Exercises/exercise{exercise_num}.txt'
         try:
             with open(file_path, 'r', encoding='utf-8') as f:
                 content = f.read()
@@ -36,17 +37,23 @@ def suggest_exercises(done_exercises: List[str], user_memory: str, user_stage: s
     ]
     
     # First get 3 potential exercises using the initial prompt
-    with open('backend/api/bot/RAG/prompt.md', 'r', encoding='utf-8') as f:
+    with open('api/bot/RAG/prompt.md', 'r', encoding='utf-8') as f:
         system_prompt = f.read()
+
+    # shuffle json of excerices to prevent bias on first items
+    random.shuffle(available_exercises)
     
     system_prompt = system_prompt.format(
         memory=user_memory, 
         stage=user_stage, 
+        done_before=','.join(done_exercises) if done_exercises else [],
         exc=available_exercises, 
-        done_before=','.join(done_exercises) if done_exercises else "None"
     )
 
+
+
     potential_excs_nums = openai_req_generator(system_prompt=system_prompt).split(',')
+    print(potential_excs_nums)
     potential_excs_nums = [exc_num.strip() for exc_num in potential_excs_nums]
     
     # Get the content and metadata for these potential exercises
@@ -59,7 +66,7 @@ def suggest_exercises(done_exercises: List[str], user_memory: str, user_stage: s
     ]
     
     # Use the exercise decider to choose the best exercise
-    with open('backend/api/bot/RAG/exercise_decider.md', 'r', encoding='utf-8') as f:
+    with open('api/bot/RAG/exercise_decider.md', 'r', encoding='utf-8') as f:
         decider_prompt = f.read()
     
     # Format a structured prompt with all the data needed for decision
@@ -89,7 +96,7 @@ def suggest_exercises(done_exercises: List[str], user_memory: str, user_stage: s
     # Get the content for the chosen exercise
     chosen_exc_content = get_exercise_content([chosen_exc_num])
     
-    return chosen_exc_content
+    return chosen_exc_content, chosen_exc_num
 
 
 
@@ -108,7 +115,4 @@ def openai_req_generator(system_prompt):
         temperature=0.05,
     )
     return chat_completion.choices[0].message.content
-
-
-# todo change 2 --> 2a, 2b
 

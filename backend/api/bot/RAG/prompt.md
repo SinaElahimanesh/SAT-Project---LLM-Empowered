@@ -12,15 +12,15 @@ You are an intelligent exercise suggestion model. Your task is to suggest the be
 Given the user's current situation, stage, and exercises user done before, analyze the JSON data and suggest the three exercises that would be most beneficial for the user. Focus more on the "Stage" and "Circumstance" keys to ensure the suggestions are relevant to the user's current situation.
 
 ### Example JSON Object
-```json
-{
+```
+{{
     "Exercise Number": "6",
     "Task": "Building a safe home for your inner emotional world",
     "Stage": "Throughout the SAT course and in all circumstances",
     "Circumstance": "Whenever you feel like doing an artistic work",
     "Benefits": "Imaginative creation of a solid and stable home for our inner emotional world provides us with the feeling of safety",
     "Why": "We all need to feel secure in challenging circumstances and a safe imaginative home provides a secure attachment object"
-}
+}}
 ```
 
 ### Instructions
@@ -28,6 +28,7 @@ Given the user's current situation, stage, and exercises user done before, analy
 2. Match the user's current situation and stage with the "Stage" and "Circumstance" keys in the JSON.
 3. Suggest the top three exercises that align with the user's needs.
 4. Return just Exercise Number of selected exercsies with ',' seperated
+5. Pay attention to all exercises equally and choose the best one, which best fits the situation of user, regardless of the order of the exercises
 
 ### Example Output Format
 1,4,8b

@@ -4,6 +4,7 @@ from api.bot.Memory.LLM_Memory import MemoryManager
 from api.bot.gpt_recommendations import create_recommendations
 from api.bot.gpt_for_comprehension import OpenAILLM
 from api.bot.gpt_for_statedetection import if_data_sufficient_for_state_change
+from api.bot.RAG.llm_excercise_suggestor import suggest_exercises
 
 class StateMachine:
     def __init__(self):
@@ -15,12 +16,13 @@ class StateMachine:
         """Get or create state for a specific user"""
         if user.id not in self.user_states:
             self.user_states[user.id] = {
-                'state': "GREETING_FORMALITY_NAME",
+                'state': "GREETING_FORMALITY_NAME", #"SUGGESTION",
                 'loop_count': 0,
                 'message_count': 0,
                 'emotion': None,
                 'response': None,
-                'stage': user.stage
+                'stage': user.stage,
+                'exercises_done': set()
             }
         return self.user_states[user.id]
 
@@ -40,6 +42,18 @@ class StateMachine:
                 system_prompt = system_prompt.format(memory=memory_context)
         
         return openai_req_generator(system_prompt=system_prompt, user_prompt=message, json_output=False, temperature=0.1)
+    
+
+    def customize_excercises(self, prompt_file, user, excercises):
+        with open(f'api/bot/Prompts/{prompt_file}', "r", encoding="utf-8") as file:
+            system_prompt = file.read()   
+            memory_context = self.memory_manager.format_memory_for_prompt(user)
+            with open('debug.md', 'w', encoding="utf-8") as file:
+                file.write(memory_context)
+            if memory_context != "":
+                system_prompt = system_prompt.format(memory=memory_context, exc=excercises)
+        
+        return openai_req_generator(system_prompt=system_prompt, user_prompt=None, json_output=False, temperature=0.1)
     
     def if_transition(self, user, data):
         messages_obj = self.memory_manager.get_chat_history(user)  
@@ -67,14 +81,14 @@ class StateMachine:
             print(response)
             self.set_response(response, user)
             if user_state['response'] == 'Yes':
-                self.transition("SUGGESTION", user)
+                self.transition("EXC_DOING", user)
             else:
-                self.transition("THANKS", user)
+                self.transition("LIKE_ANOTHER_EXERCSISE", user)
 
         if user_state['state'] == "INVITE_TO_ATTEMPT_EXC_DECIDER":
             response = self.openai_llm.response_retriever(user_message=message)
             print(response)
-            self.set_response(response, user)
+            # self.set_response(response, user)
             if user_state['response'] == 'Yes':
                 self.transition("FEEDBACK", user)
             else:
@@ -114,13 +128,19 @@ class StateMachine:
             return response, create_recommendations(response, self.memory_manager.get_current_memory(user))
         
         elif user_state['state'] == "SUGGESTION":
-            response = self.ask_llm("suggestion.md", message, user)
+            exercise_content, exercise_number = suggest_exercises(user_state['exercises_done'], self.memory_manager.get_current_memory(user), user_state['stage'])
+            user_state['exercises_done'].add(exercise_number)
+            response = self.customize_excercises("suggestion.md", user, exercise_content)
             return response, create_recommendations(response, self.memory_manager.get_current_memory(user))
         
-        elif user_state['state'] == "INVITE_TO_ATTEMPT_EXC":
-            response = self.ask_llm("invite_to_attempt_exc.md", message, user)
+        elif user_state['state'] == "EXC_DOING":
+            response = self.ask_llm("exc_doing.md", message, user)
             return response, create_recommendations(response, self.memory_manager.get_current_memory(user))
         
+        # elif user_state['state'] == "INVITE_TO_ATTEMPT_EXC":
+        #     response = self.ask_llm("invite_to_attempt_exc.md", message, user)
+        #     return response, create_recommendations(response, self.memory_manager.get_current_memory(user))
+            
         elif user_state['state'] == "FEEDBACK":
             response = self.ask_llm("invite_to_attempt_exc.md", message, user)
             return response, create_recommendations(response, self.memory_manager.get_current_memory(user))
@@ -187,10 +207,10 @@ class StateMachine:
             self.transition("SUGGESTION", user)
             
         elif user_state['state'] == "SUGGESTION":
-            self.transition("INVITE_TO_ATTEMPT_EXC", user)
-
-        elif user_state['state'] == "INVITE_TO_ATTEMPT_EXC":
             self.transition("INVITE_TO_ATTEMPT_EXC_DECIDER", user)
+
+        # elif user_state['state'] == "INVITE_TO_ATTEMPT_EXC":
+        #     self.transition("INVITE_TO_ATTEMPT_EXC_DECIDER", user)
         
         elif user_state['state'] == "FEEDBACK":
             self.transition("LIKE_ANOTHER_EXERCSISE", user)

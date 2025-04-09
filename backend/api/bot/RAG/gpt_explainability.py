@@ -17,7 +17,7 @@ def create_exercise_explanation(memory: str, exercise_numbers: list) -> list:
     # First collect all exercise mappings
     for exercise_num in exercise_numbers:
         try:
-            with open(f'backend/api/bot/RAG/Mapping/exercise{exercise_num}.txt', 'r', encoding='utf-8') as f:
+            with open(f'api/bot/RAG/Mapping/exercise{exercise_num}.txt', 'r', encoding='utf-8') as f:
                 exercise_mappings.append(f.read())
         except FileNotFoundError:
             exercise_mappings.append("Exercise mapping not found.")
