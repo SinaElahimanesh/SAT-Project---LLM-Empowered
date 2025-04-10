@@ -180,7 +180,7 @@ class StateMachine:
             user_state['loop_count'] += 1
 
         if user_state['state'] == "GREETING_FORMALITY_NAME": 
-            transit = self.if_transition(user, "greeting_formality_name.md")
+            transit = self.if_transition(user, "greeting.md")
             print("transit", transit)
             if transit == "بله":
                 self.transition("EMOTION", user)
@@ -192,7 +192,7 @@ class StateMachine:
             self.transition("DECIDER", user)
 
         elif user_state['state'] == "SUPER_STATE_EVENT":
-            transit = self.if_transition(user, "ask_all_event.md")
+            transit = self.if_transition(user, "event.md")
             print("transit", transit)
             if transit == "بله":
                 self.transition("ASK_EXERCISE", user)
