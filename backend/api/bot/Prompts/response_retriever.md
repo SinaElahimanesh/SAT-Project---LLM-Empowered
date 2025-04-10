@@ -1,14 +1,15 @@
-وظیفه شما شناسایی پاسخ کاربر است. دو کلاس (Yes و No) وجود دارد و شما باید فقط یک کلمه را که نشان‌دهنده پاسخ پیام کاربر است، تولید کنید.
-
-مثال ۱:
-پیام کاربر:
-پاسخ شما: Yes
-
-مثال ۲:
-پیام کاربر:
-پاسخ شما: No
-
-هشدار ۱: زبان پیام کاربر فارسی است.
-هشدار ۲: فقط و فقط یک کلمه از لیست زیر را تولید کنید:
-
-['Yes', 'No']
+Your task is to identify the user's response. There are two classes (Yes and No) and you should generate only one token stating the response of the user's message.
+ 
+ Example 1:
+ User Prompt:
+ Your Response: Positive
+ 
+ Example 2:
+ User Prompt:
+ Your Response: Negative
+ 
+ 
+ WARNING 1: The user message's language is in Farsi.
+ WARNING 2: Only and Only generate one token from the list below:
+ 
+ ['Yes', 'No']

@@ -81,7 +81,7 @@ class StateMachine:
             print(response)
             self.set_response(response, user)
             if user_state['response'] == 'Yes':
-                self.transition("EXC_DOING", user)
+                self.transition("SUGGESTION", user)
             else:
                 self.transition("LIKE_ANOTHER_EXERCSISE", user)
 
@@ -133,9 +133,9 @@ class StateMachine:
             response = self.customize_excercises("suggestion.md", user, exercise_content)
             return response, create_recommendations(response, self.memory_manager.get_current_memory(user))
         
-        elif user_state['state'] == "EXC_DOING":
-            response = self.ask_llm("exc_doing.md", message, user)
-            return response, create_recommendations(response, self.memory_manager.get_current_memory(user))
+        # elif user_state['state'] == "EXC_DOING":
+        #     response = self.ask_llm("exc_doing.md", message, user)
+        #     return response, create_recommendations(response, self.memory_manager.get_current_memory(user))
         
         # elif user_state['state'] == "INVITE_TO_ATTEMPT_EXC":
         #     response = self.ask_llm("invite_to_attempt_exc.md", message, user)
