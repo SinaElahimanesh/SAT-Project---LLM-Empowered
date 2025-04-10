@@ -115,9 +115,9 @@ class StateMachine:
             response = self.ask_llm("ask_all_event.md", message, user)
             return response, create_recommendations(response, self.memory_manager.get_current_memory(user))
 
-        elif user_state['state'] == "ADDITIONAL":
-            response = self.ask_llm("additional.md", message, user)
-            return response, create_recommendations(response, self.memory_manager.get_current_memory(user))
+        # elif user_state['state'] == "ADDITIONAL":
+        #     response = self.ask_llm("additional.md", message, user)
+        #     return response, create_recommendations(response, self.memory_manager.get_current_memory(user))
         
         elif user_state['state'] == "INVITE_TO_PROJECT":
             response = self.ask_llm("invite_to_project.md", message, user)
@@ -180,25 +180,25 @@ class StateMachine:
             user_state['loop_count'] += 1
 
         if user_state['state'] == "GREETING_FORMALITY_NAME": 
-            transit = self.if_transition(user, "greeting.md")
+            transit = self.if_transition(user, "greeting_formality_name.md")
             print("transit", transit)
             if transit == "بله":
                 self.transition("EMOTION", user)
         
         elif user_state['state'] == "EMOTION":
-            transit = self.if_transition(user, "emotion.md")
-            print("transit", transit)
-            if transit == "بله":
-                self.transition("DECIDER", user)
+            # transit = self.if_transition(user, "emotion.md")
+            # print("transit", transit)
+            # if transit == "بله":
+            self.transition("DECIDER", user)
 
         elif user_state['state'] == "SUPER_STATE_EVENT":
-            transit = self.if_transition(user, "event.md")
+            transit = self.if_transition(user, "ask_all_event.md")
             print("transit", transit)
             if transit == "بله":
-                self.transition("ADDITIONAL", user)
+                self.transition("ASK_EXERCISE", user)
 
-        elif user_state['state'] == "ADDITIONAL":
-            self.transition("ASK_EXERCISE", user)
+        # elif user_state['state'] == "ADDITIONAL":
+        #     self.transition("ASK_EXERCISE", user)
 
         elif user_state['state'] == "ASK_EXERCISE":
             self.transition("ASK_EXERCISE_DECIDER", user)
