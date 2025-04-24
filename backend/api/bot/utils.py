@@ -40,7 +40,9 @@ class StateMachine:
                 file.write(memory_context)
             if memory_context != "":
                 system_prompt = system_prompt.format(memory=memory_context)
-        
+                
+        print(f'system_prompt={system_prompt}')
+        print(f'user_prompt={message}')
         return openai_req_generator(system_prompt=system_prompt, user_prompt=message, json_output=False, temperature=0.1)
     
 
@@ -67,9 +69,8 @@ class StateMachine:
     def state_handler(self, message, user):
         user_state = self.get_user_state(user)
 
-        if user_state['state'] == "DECIDER":
+        if user_state['state'] == "EMOTION_DECIDER":
             emotion = self.openai_llm.emotion_retriever(user_message=message)
-            print(emotion)
             self.set_emotion(emotion, user)
             if user_state['emotion'] == 'Positive':
                 self.transition("ASK_EXERCISE", user)
@@ -78,28 +79,25 @@ class StateMachine:
 
         if user_state['state'] == "ASK_EXERCISE_DECIDER":    
             response = self.openai_llm.response_retriever(user_message=message)
-            print(response)
             self.set_response(response, user)
             if user_state['response'] == 'Yes':
-                self.transition("SUGGESTION", user)
+                self.transition("EXERCISE_SUGGESTION", user)
             else:
                 self.transition("THANKS", user)
 
-        # if user_state['state'] == "INVITE_TO_ATTEMPT_EXC_DECIDER":
-        #     response = self.openai_llm.response_retriever(user_message=message)
-        #     print(response)
-        #     # self.set_response(response, user)
-        #     if user_state['response'] == 'Yes':
-        #         self.transition("FEEDBACK", user)
-        #     else:
-        #         self.transition("THANKS", user)
+        if user_state['state'] == "EXERCISE_SUGGESTION_DECIDER":
+            response = self.openai_llm.response_retriever(user_message=message)
+            self.set_response(response, user)
+            if user_state['response'] == 'Yes':
+                self.transition("FEEDBACK", user)
+            else:
+                self.transition("LIKE_ANOTHER_EXERCSISE_DECIDER", user)
 
         if user_state['state'] == "LIKE_ANOTHER_EXERCSISE_DECIDER":
             response = self.openai_llm.response_retriever(user_message=message)
-            print(response)
             self.set_response(response, user)
             if user_state['response'] == 'Yes':
-                self.transition("SUGGESTION", user)
+                self.transition("EXERCISE_SUGGESTION", user)
             else:
                 self.transition("THANKS", user)
 
@@ -127,7 +125,7 @@ class StateMachine:
             response = self.ask_llm("ask_exercise.md", message, user)
             return response, create_recommendations(response, self.memory_manager.get_current_memory(user))
         
-        elif user_state['state'] == "SUGGESTION":
+        elif user_state['state'] == "EXERCISE_SUGGESTION":
             exercise_content, exercise_number = suggest_exercises(user_state['exercises_done'], self.memory_manager.get_current_memory(user), user_state['stage'])
             user_state['exercises_done'].add(exercise_number)
             response = self.customize_excercises("suggestion.md", user, exercise_content)
@@ -189,7 +187,7 @@ class StateMachine:
             transit = self.if_transition(user, "emotion.md")
             print("transit", transit)
             if transit == "بله":
-                self.transition("DECIDER", user)
+                self.transition("EMOTION_DECIDER", user)
 
         elif user_state['state'] == "SUPER_STATE_EVENT":
             transit = self.if_transition(user, "event.md")
@@ -206,8 +204,8 @@ class StateMachine:
         # elif user_state['state'] == "INVITE_TO_PROJECT":
         #     self.transition("SUGGESTION", user)
             
-        elif user_state['state'] == "SUGGESTION":
-            self.transition("FEEDBACK", user)
+        elif user_state['state'] == "EXERCISE_SUGGESTION":
+            self.transition("EXERCISE_SUGGESTION_DECIDER", user)
 
         # elif user_state['state'] == "INVITE_TO_ATTEMPT_EXC":
         #     self.transition("INVITE_TO_ATTEMPT_EXC_DECIDER", user)
