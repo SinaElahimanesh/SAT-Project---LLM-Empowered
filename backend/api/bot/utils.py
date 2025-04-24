@@ -83,16 +83,16 @@ class StateMachine:
             if user_state['response'] == 'Yes':
                 self.transition("SUGGESTION", user)
             else:
-                self.transition("LIKE_ANOTHER_EXERCSISE", user)
-
-        if user_state['state'] == "INVITE_TO_ATTEMPT_EXC_DECIDER":
-            response = self.openai_llm.response_retriever(user_message=message)
-            print(response)
-            # self.set_response(response, user)
-            if user_state['response'] == 'Yes':
-                self.transition("FEEDBACK", user)
-            else:
                 self.transition("THANKS", user)
+
+        # if user_state['state'] == "INVITE_TO_ATTEMPT_EXC_DECIDER":
+        #     response = self.openai_llm.response_retriever(user_message=message)
+        #     print(response)
+        #     # self.set_response(response, user)
+        #     if user_state['response'] == 'Yes':
+        #         self.transition("FEEDBACK", user)
+        #     else:
+        #         self.transition("THANKS", user)
 
         if user_state['state'] == "LIKE_ANOTHER_EXERCSISE_DECIDER":
             response = self.openai_llm.response_retriever(user_message=message)
@@ -119,9 +119,9 @@ class StateMachine:
         #     response = self.ask_llm("additional.md", message, user)
         #     return response, create_recommendations(response, self.memory_manager.get_current_memory(user))
         
-        elif user_state['state'] == "INVITE_TO_PROJECT":
-            response = self.ask_llm("invite_to_project.md", message, user)
-            return response, create_recommendations(response, self.memory_manager.get_current_memory(user))
+        # elif user_state['state'] == "INVITE_TO_PROJECT":
+        #     response = self.ask_llm("invite_to_project.md", message, user)
+        #     return response, create_recommendations(response, self.memory_manager.get_current_memory(user))
         
         elif user_state['state'] == "ASK_EXERCISE":
             response = self.ask_llm("ask_exercise.md", message, user)
@@ -142,7 +142,7 @@ class StateMachine:
         #     return response, create_recommendations(response, self.memory_manager.get_current_memory(user))
             
         elif user_state['state'] == "FEEDBACK":
-            response = self.ask_llm("invite_to_attempt_exc.md", message, user)
+            response = self.ask_llm("feedback.md", message, user)
             return response, create_recommendations(response, self.memory_manager.get_current_memory(user))
         
         elif user_state['state'] == "LIKE_ANOTHER_EXERCSISE":
@@ -186,10 +186,10 @@ class StateMachine:
                 self.transition("EMOTION", user)
         
         elif user_state['state'] == "EMOTION":
-            # transit = self.if_transition(user, "emotion.md")
-            # print("transit", transit)
-            # if transit == "بله":
-            self.transition("DECIDER", user)
+            transit = self.if_transition(user, "emotion.md")
+            print("transit", transit)
+            if transit == "بله":
+                self.transition("DECIDER", user)
 
         elif user_state['state'] == "SUPER_STATE_EVENT":
             transit = self.if_transition(user, "event.md")
@@ -203,11 +203,11 @@ class StateMachine:
         elif user_state['state'] == "ASK_EXERCISE":
             self.transition("ASK_EXERCISE_DECIDER", user)
             
-        elif user_state['state'] == "INVITE_TO_PROJECT":
-            self.transition("SUGGESTION", user)
+        # elif user_state['state'] == "INVITE_TO_PROJECT":
+        #     self.transition("SUGGESTION", user)
             
         elif user_state['state'] == "SUGGESTION":
-            self.transition("INVITE_TO_ATTEMPT_EXC_DECIDER", user)
+            self.transition("FEEDBACK", user)
 
         # elif user_state['state'] == "INVITE_TO_ATTEMPT_EXC":
         #     self.transition("INVITE_TO_ATTEMPT_EXC_DECIDER", user)
