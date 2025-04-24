@@ -91,7 +91,7 @@ class StateMachine:
             if user_state['response'] == 'Yes':
                 self.transition("FEEDBACK", user)
             else:
-                self.transition("LIKE_ANOTHER_EXERCSISE_DECIDER", user)
+                self.transition("LIKE_ANOTHER_EXERCSISE", user)
 
         if user_state['state'] == "LIKE_ANOTHER_EXERCSISE_DECIDER":
             response = self.openai_llm.response_retriever(user_message=message)
