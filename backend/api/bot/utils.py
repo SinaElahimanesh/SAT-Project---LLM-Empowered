@@ -5,6 +5,8 @@ from api.bot.gpt_recommendations import create_recommendations
 from api.bot.gpt_for_comprehension import OpenAILLM
 from api.bot.gpt_for_statedetection import if_data_sufficient_for_state_change
 from api.bot.RAG.llm_excercise_suggestor import suggest_exercises
+from api.bot.RAG.gpt_explainability import create_exercise_explanation
+
 
 class StateMachine:
     def __init__(self):
@@ -50,8 +52,8 @@ class StateMachine:
         with open(f'api/bot/Prompts/{prompt_file}', "r", encoding="utf-8") as file:
             system_prompt = file.read()   
             memory_context = self.memory_manager.format_memory_for_prompt(user)
-            with open('debug.md', 'w', encoding="utf-8") as file:
-                file.write(memory_context)
+            # with open('debug.md', 'w', encoding="utf-8") as file:
+            #     file.write(memory_context)
             if memory_context != "":
                 system_prompt = system_prompt.format(memory=memory_context, exc=excercises)
         
@@ -103,15 +105,15 @@ class StateMachine:
 
         if user_state['state'] == "GREETING_FORMALITY_NAME":
             response = self.ask_llm("greeting_formality_name.md", message, user)
-            return response, create_recommendations(response, self.memory_manager.get_current_memory(user))
+            return response, create_recommendations(response, self.memory_manager.get_current_memory(user)), None
 
         elif user_state['state'] == "EMOTION":
             response = self.ask_llm("emotion.md", message, user)
-            return response, create_recommendations(response, self.memory_manager.get_current_memory(user))
+            return response, create_recommendations(response, self.memory_manager.get_current_memory(user)), None
         
         elif user_state['state'] == "SUPER_STATE_EVENT":
             response = self.ask_llm("ask_all_event.md", message, user)
-            return response, create_recommendations(response, self.memory_manager.get_current_memory(user))
+            return response, create_recommendations(response, self.memory_manager.get_current_memory(user)), None
 
         # elif user_state['state'] == "ADDITIONAL":
         #     response = self.ask_llm("additional.md", message, user)
@@ -123,13 +125,15 @@ class StateMachine:
         
         elif user_state['state'] == "ASK_EXERCISE":
             response = self.ask_llm("ask_exercise.md", message, user)
-            return response, create_recommendations(response, self.memory_manager.get_current_memory(user))
+            return response, create_recommendations(response, self.memory_manager.get_current_memory(user)), None
         
         elif user_state['state'] == "EXERCISE_SUGGESTION":
-            exercise_content, exercise_number = suggest_exercises(user_state['exercises_done'], self.memory_manager.get_current_memory(user), user_state['stage'])
+            user_memory = self.memory_manager.get_current_memory(user)
+            exercise_content, exercise_number = suggest_exercises(user_state['exercises_done'], user_memory, user_state['stage'])
             user_state['exercises_done'].add(exercise_number)
             response = self.customize_excercises("suggestion.md", user, exercise_content)
-            return response, create_recommendations(response, self.memory_manager.get_current_memory(user))
+            explainability = create_exercise_explanation(exercise_content, user_memory)
+            return response, create_recommendations(response, self.memory_manager.get_current_memory(user)), explainability
         
         # elif user_state['state'] == "EXC_DOING":
         #     response = self.ask_llm("exc_doing.md", message, user)
@@ -141,27 +145,27 @@ class StateMachine:
             
         elif user_state['state'] == "FEEDBACK":
             response = self.ask_llm("feedback.md", message, user)
-            return response, create_recommendations(response, self.memory_manager.get_current_memory(user))
+            return response, create_recommendations(response, self.memory_manager.get_current_memory(user)), None
         
         elif user_state['state'] == "LIKE_ANOTHER_EXERCSISE":
             response = self.ask_llm("like_to_do_another_exc.md", message, user)
-            return response, create_recommendations(response, self.memory_manager.get_current_memory(user))
+            return response, create_recommendations(response, self.memory_manager.get_current_memory(user)), None
         
         elif user_state['state'] == "THANKS":
             response = self.ask_llm("thanks.md", message, user)
-            return response, create_recommendations(response, self.memory_manager.get_current_memory(user))
+            return response, create_recommendations(response, self.memory_manager.get_current_memory(user)), None
         
         elif user_state['state'] == "END":
             response = self.ask_llm("end.md", message, user)
-            return response, create_recommendations(response, self.memory_manager.get_current_memory(user))
+            return response, create_recommendations(response, self.memory_manager.get_current_memory(user)), None
   
         else:
-            return "میتونی بیشتر توضیح بدی", []
+            return "میتونی بیشتر توضیح بدی", [], None
 
     def execute_state(self, message, user):
         user_state = self.get_user_state(user)
         print(f"You are in the {user_state['state']} state")
-        response, recommendations = self.state_handler(message, user)
+        response, recommendations, explainibility = self.state_handler(message, user)
         print(response, recommendations)
         
         # update memory and increment message count
@@ -222,7 +226,7 @@ class StateMachine:
         elif user_state['state'] == "END":
             print("State machine has reached the end.")
         
-        return response, recommendations, user_state['state']
+        return response, recommendations, user_state['state'], explainibility
         
     def set_emotion(self, emotion, user):
         user_state = self.get_user_state(user)
