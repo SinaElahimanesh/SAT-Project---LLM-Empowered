@@ -67,7 +67,7 @@ class StateMachine:
 
     def state_handler(self, message, user):
         user_state = self.get_user_state(user)
-        # excercise_number = None
+        excercise_number = None
 
         if user_state['state'] == "EMOTION_DECIDER":
             emotion = self.openai_llm.emotion_retriever(user_message=message)
