@@ -57,9 +57,9 @@ class MessageView(APIView):
         # message = Message.objects.create(user=user, text=text, session_id=session_id)
 
         # State machine logic using shared instance
-        response_text, recommendations, state = state_machine.execute_state(text, user)
+        response_text, recommendations, state, explainibility = state_machine.execute_state(text, user)
 
-        return Response({"response": response_text, "recommendations":recommendations, "state": state}, status=200)
+        return Response({"response": response_text, "recommendations":recommendations, "state": state, "explainibility": explainibility}, status=200)
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
