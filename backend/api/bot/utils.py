@@ -17,8 +17,7 @@ class StateMachine:
         """Get or create state for a specific user"""
         if user.id not in self.user_states:
             self.user_states[user.id] = {
-                'state': "GREETING_FORMALITY_NAME",  # "SUGGESTION",
-                'loop_count': 0,
+                'state': "GREETING_FORMALITY_NAME",
                 'message_count': 0,
                 'emotion': None,
                 'response': None,
@@ -31,7 +30,6 @@ class StateMachine:
         user_state = self.get_user_state(user)
         print(f"Transitioning from {user_state['state']} to {new_state}")
         user_state['state'] = new_state
-        user_state['loop_count'] = 0
 
     def ask_llm(self, prompt_file, message, user):
         with open(f'api/bot/Prompts/{prompt_file}', "r", encoding="utf-8") as file:
@@ -69,7 +67,7 @@ class StateMachine:
 
     def state_handler(self, message, user):
         user_state = self.get_user_state(user)
-        excercise_number = None
+        # excercise_number = None
 
         if user_state['state'] == "EMOTION_DECIDER":
             emotion = self.openai_llm.emotion_retriever(user_message=message)
@@ -162,9 +160,6 @@ class StateMachine:
             self.memory_manager.update_memory(user)
             user_state['message_count'] = 0
 
-        if user_state['loop_count'] < 5:
-            user_state['loop_count'] += 1
-
         if user_state['state'] == "GREETING_FORMALITY_NAME":
             transit = self.if_transition(user, "greeting.md")
             print("transit", transit)
@@ -226,7 +221,6 @@ class StateMachine:
         # Reset user state
         self.user_states[user.id] = {
             'state': "GREETING_FORMALITY_NAME",
-            'loop_count': 0,
             'message_count': 0,
             'emotion': None,
             'response': None
