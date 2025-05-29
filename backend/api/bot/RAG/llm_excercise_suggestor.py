@@ -99,7 +99,6 @@ def suggest_exercises(done_exercises: List[str], user_memory: str, user_stage: s
     return chosen_exc_content, chosen_exc_num
 
 
-
 load_dotenv()
 
 client = OpenAI(

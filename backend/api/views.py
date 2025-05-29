@@ -45,6 +45,11 @@ class LoginView(APIView):
 class MessageView(APIView):
     permission_classes = [IsAuthenticated]
 
+    def keep_only_numbers(self, s):
+        if s is None:
+            return None
+        return ''.join(char for char in s if char.isdigit())
+
     def post(self, request):
         # user = request.user
         text = request.data.get('text')
@@ -57,9 +62,10 @@ class MessageView(APIView):
         # message = Message.objects.create(user=user, text=text, session_id=session_id)
 
         # State machine logic using shared instance
-        response_text, recommendations, state = state_machine.execute_state(text, user)
+        response_text, recommendations, state, explainibility, excercise_number = state_machine.execute_state(text, user)
+        excercise_number = self.keep_only_numbers(excercise_number)
 
-        return Response({"response": response_text, "recommendations":recommendations, "state": state}, status=200)
+        return Response({"response": response_text, "recommendations":recommendations, "state": state, "explainibility": explainibility, "excercise_number": excercise_number}, status=200)
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
