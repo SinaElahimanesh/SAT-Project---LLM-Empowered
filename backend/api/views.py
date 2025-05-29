@@ -46,6 +46,8 @@ class MessageView(APIView):
     permission_classes = [IsAuthenticated]
 
     def keep_only_numbers(self, s):
+        if s is None:
+            return None
         return ''.join(char for char in s if char.isdigit())
 
     def post(self, request):
