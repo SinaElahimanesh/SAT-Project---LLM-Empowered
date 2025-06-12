@@ -40,8 +40,8 @@ class StateMachine:
             if memory_context != "":
                 system_prompt = system_prompt.format(memory=memory_context)
 
-        print(f'system_prompt={system_prompt}')
-        print(f'user_prompt={message}')
+        # print(f'system_prompt={system_prompt}')
+        # print(f'user_prompt={message}')
         return openai_req_generator(system_prompt=system_prompt, user_prompt=message, json_output=False, temperature=0.1)
 
     def customize_excercises(self, prompt_file, user, excercises):
@@ -198,7 +198,7 @@ class StateMachine:
 
         response, recommendations, explainibility, excercise_number = self.state_handler(
             message, user)
-        print(response, recommendations)
+        # print(response, recommendations)
 
         self.memory_manager.add_message(
             user=user, text=response, is_user=False)
@@ -209,11 +209,12 @@ class StateMachine:
     def set_emotion(self, emotion, user):
         user_state = self.get_user_state(user)
         user_state['emotion'] = emotion
-        print(user_state['emotion'])
+        print(f'user emotion={user_state["emotion"]}')
 
     def set_response(self, response, user):
         user_state = self.get_user_state(user)
         user_state['response'] = response
+        print(f'user response={user_state["response"]}')
 
     def handle_session_end(self, user):
         """Handle cleanup when user ends session"""
