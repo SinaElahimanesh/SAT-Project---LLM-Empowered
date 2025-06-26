@@ -18,7 +18,7 @@ def retrieve_relevant_exercise(query: str, done_exercises: List[int] = None) -> 
     query_embedding = model.encode([query])
     
     # Get all exercise files
-    exercise_files = glob.glob('backend/api/bot/RAG/Mapping/exercise*.txt')
+    exercise_files = glob.glob('api/bot/RAG/Mapping/exercise*.txt')
     
     # Store exercise contents and their embeddings
     exercise_contents = []
@@ -73,7 +73,7 @@ def get_exercise_content(exercise_tuples: List[Tuple[int, float]]) -> List[str]:
     exercise_contents = []
     
     for exercise_num, _ in exercise_tuples:
-        file_path = f'backend/api/bot/RAG/Exercises/exercise{exercise_num}.txt'
+        file_path = f'api/bot/RAG/Exercises/exercise{exercise_num}.txt'
         try:
             with open(file_path, 'r', encoding='utf-8') as f:
                 content = f.read()
