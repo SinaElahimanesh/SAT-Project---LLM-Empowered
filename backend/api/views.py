@@ -9,6 +9,7 @@ from .serializers import UserSerializer, MessageSerializer
 from .bot.utils import StateMachine
 from rest_framework.decorators import api_view, permission_classes
 from .bot.Memory.LLM_Memory import MemoryManager
+from .bot.simple_bot import simple_bot_response
 
 import os
 from django.http import JsonResponse
@@ -16,16 +17,25 @@ from django.core.files.storage import default_storage
 from django.core.files.base import ContentFile
 from .bot.ASR.ASRPipeline import feed_audio_to_ASR_modal
 
+import random
+
 # Create shared instances at module level
 state_machine = StateMachine()
 memory_manager = MemoryManager()
 
 class RegisterView(APIView):
     def post(self, request):
-        serializer = UserSerializer(data=request.data)
+        data = request.data.copy()
+        # Assign group if not provided
+        if 'group' not in data:
+            data['group'] = random.choice(['control', 'intervention'])
+        serializer = UserSerializer(data=data)
         if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=201)
+            user = serializer.save()
+            # Return group in response
+            response_data = serializer.data
+            response_data['group'] = user.group
+            return Response(response_data, status=201)
         return Response(serializer.errors, status=400)
 
 class LoginView(APIView):
@@ -35,10 +45,10 @@ class LoginView(APIView):
         user = authenticate(username=username, password=password)
         if user:
             refresh = RefreshToken.for_user(user)
-            print(user, type(user))
             return Response({
                 'refresh': str(refresh),
                 'access': str(refresh.access_token),
+                'group': user.group,
             })
         return Response({"error": "Invalid credentials"}, status=400)
 
@@ -66,6 +76,17 @@ class MessageView(APIView):
         excercise_number = self.keep_only_numbers(excercise_number)
 
         return Response({"response": response_text, "recommendations":recommendations, "state": state, "explainibility": explainibility, "excercise_number": excercise_number}, status=200)
+
+class SimpleBotView(APIView):
+    def post(self, request):
+        history = request.data.get('history', [])
+        text = request.data.get('text')
+        response_text, recommendations, updated_history = simple_bot_response(history, text)
+        return Response({
+            "response": response_text,
+            "recommendations": recommendations,
+            "history": updated_history
+        }, status=200)
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])

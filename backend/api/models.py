@@ -11,11 +11,25 @@ class Stage(str, Enum):
     def choices(cls):
         return [(key.value, key.name) for key in cls]
 
+class UserGroup(str, Enum):
+    CONTROL = "control"  # simple bot (RCT control group)
+    INTERVENTION = "intervention"  # main chatbot (RCT intervention group)
+
+    @classmethod
+    def choices(cls):
+        return [(key.value, key.name) for key in cls]
+
 class User(AbstractUser):
     stage = models.CharField(
         max_length=20,
         choices=Stage.choices(),
         default=Stage.BEGINNING
+    )
+    group = models.CharField(
+        max_length=20,
+        choices=UserGroup.choices(),
+        default=UserGroup.CONTROL,
+        help_text="User's assigned group (control or intervention). Should be set once and not changed."
     )
 
 class Message(models.Model):

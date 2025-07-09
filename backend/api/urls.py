@@ -1,5 +1,6 @@
 from django.urls import path
 from .views import RegisterView, LoginView, MessageView, end_session, get_audio_message
+from .views import SimpleBotView
 
 urlpatterns = [
     path('register/', RegisterView.as_view(), name='register'),
@@ -7,4 +8,5 @@ urlpatterns = [
     path('message/', MessageView.as_view(), name='message'),
     path('end-session/', end_session, name='end-session'),
     path('send-audio/', get_audio_message, name='send-audio'),
+    path('simple-chat/', SimpleBotView.as_view(), name='simple-chat'),
 ]

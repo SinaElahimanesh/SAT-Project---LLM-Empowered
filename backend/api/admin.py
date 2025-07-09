@@ -1,8 +1,19 @@
 from django.contrib import admin
-from django.contrib.auth.admin import UserAdmin
+from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from .models import User, Message, UserMemoryState
 
-# Register the custom User model
+class UserAdmin(BaseUserAdmin):
+    fieldsets = BaseUserAdmin.fieldsets + (
+        ('RCT Group', {'fields': ('group',)}),
+    )
+    add_fieldsets = BaseUserAdmin.add_fieldsets + (
+        ('RCT Group', {'fields': ('group',)}),
+    )
+    list_display = BaseUserAdmin.list_display + ('group',)
+
+# REMOVE or COMMENT OUT this line:
+# admin.site.unregister(User)
+
 admin.site.register(User, UserAdmin)
 
 @admin.register(Message)

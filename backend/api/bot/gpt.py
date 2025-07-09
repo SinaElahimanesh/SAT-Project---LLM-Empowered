@@ -29,3 +29,13 @@ def openai_req_generator(system_prompt, user_prompt=None, json_output=False, tem
         )
     return chat_completion.choices[0].message.content
 
+# New function for passing full message history
+
+def openai_req_with_history(messages, temperature=0.01):
+    chat_completion = client.chat.completions.create(
+        messages=messages,
+        model="gpt-4o",
+        temperature=temperature,
+    )
+    return chat_completion.choices[0].message.content
+
