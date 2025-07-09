@@ -40,8 +40,8 @@ class StateMachine:
             if memory_context != "":
                 system_prompt = system_prompt.format(memory=memory_context)
 
-        print(f'system_prompt={system_prompt}')
-        print(f'user_prompt={message}')
+        # print(f'system_prompt={system_prompt}')
+        # print(f'user_prompt={message}')
         return openai_req_generator(system_prompt=system_prompt, user_prompt=message, json_output=False, temperature=0.1)
 
     def customize_excercises(self, prompt_file, user, excercises):
@@ -67,12 +67,12 @@ class StateMachine:
 
     def state_handler(self, message, user):
         user_state = self.get_user_state(user)
-        excercise_number = None
+        exercise_number = None
 
         if user_state['state'] == "EMOTION_DECIDER":
             emotion = self.openai_llm.emotion_retriever(user_message=message)
             self.set_emotion(emotion, user)
-            if user_state['emotion'] == 'Positive':
+            if 'Positive' in user_state['emotion']:
                 self.transition("ASK_EXERCISE", user)
             else:
                 self.transition("SUPER_STATE_EVENT", user)
@@ -80,7 +80,7 @@ class StateMachine:
         if user_state['state'] == "ASK_EXERCISE_DECIDER":
             response = self.openai_llm.response_retriever(user_message=message)
             self.set_response(response, user)
-            if user_state['response'] == 'Yes':
+            if 'Yes' in user_state['response']:
                 self.transition("EXERCISE_SUGGESTION", user)
             else:
                 self.transition("THANKS", user)
@@ -88,7 +88,7 @@ class StateMachine:
         if user_state['state'] == "EXERCISE_SUGGESTION_DECIDER":
             response = self.openai_llm.response_retriever(user_message=message)
             self.set_response(response, user)
-            if user_state['response'] == 'Yes':
+            if 'Yes' in user_state['response']:
                 self.transition("FEEDBACK", user)
             else:
                 self.transition("LIKE_ANOTHER_EXERCSISE", user)
@@ -96,7 +96,7 @@ class StateMachine:
         if user_state['state'] == "LIKE_ANOTHER_EXERCSISE_DECIDER":
             response = self.openai_llm.response_retriever(user_message=message)
             self.set_response(response, user)
-            if user_state['response'] == 'Yes':
+            if 'Yes' in user_state['response']:
                 self.transition("EXERCISE_SUGGESTION", user)
             else:
                 self.transition("THANKS", user)
@@ -163,19 +163,19 @@ class StateMachine:
         if user_state['state'] == "GREETING_FORMALITY_NAME":
             transit = self.if_transition(user, "greeting.md")
             print("transit", transit)
-            if transit == "بله":
+            if "بله" in transit:
                 self.transition("EMOTION", user)
 
         elif user_state['state'] == "EMOTION":
             transit = self.if_transition(user, "emotion.md")
             print("transit", transit)
-            if transit == "بله":
+            if "بله" in transit:
                 self.transition("EMOTION_DECIDER", user)
 
         elif user_state['state'] == "SUPER_STATE_EVENT":
             transit = self.if_transition(user, "event.md")
             print("transit", transit)
-            if transit == "بله":
+            if "بله" in transit:
                 self.transition("ASK_EXERCISE", user)
 
         elif user_state['state'] == "ASK_EXERCISE":
@@ -198,7 +198,7 @@ class StateMachine:
 
         response, recommendations, explainibility, excercise_number = self.state_handler(
             message, user)
-        print(response, recommendations)
+        # print(response, recommendations)
 
         self.memory_manager.add_message(
             user=user, text=response, is_user=False)
@@ -209,11 +209,12 @@ class StateMachine:
     def set_emotion(self, emotion, user):
         user_state = self.get_user_state(user)
         user_state['emotion'] = emotion
-        print(user_state['emotion'])
+        print(f'user emotion={user_state["emotion"]}')
 
     def set_response(self, response, user):
         user_state = self.get_user_state(user)
         user_state['response'] = response
+        print(f'user response={user_state["response"]}')
 
     def handle_session_end(self, user):
         """Handle cleanup when user ends session"""
