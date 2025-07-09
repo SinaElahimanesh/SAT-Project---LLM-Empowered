@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import User, Message, Stage, UserGroup  # Import UserGroup
+from .models import User, Message, Stage, UserGroup
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
@@ -8,11 +8,13 @@ class UserSerializer(serializers.ModelSerializer):
         extra_kwargs = {'password': {'write_only': True}}
 
     def create(self, validated_data):
+        # Use the group from validated_data if present, otherwise default
+        group = validated_data['group'] if 'group' in validated_data else UserGroup.CONTROL
         user = User.objects.create_user(
             username=validated_data['username'],
             password=validated_data['password'],
             stage=validated_data.get('stage', Stage.BEGINNING),
-            group=validated_data.get('group', UserGroup.CONTROL)  # Use UserGroup.CONTROL
+            group=group
         )
         return user
 
