@@ -69,8 +69,14 @@ class StateMachine:
         user_state = self.get_user_state(user)
         exercise_number = None
 
+        messages_obj = self.memory_manager.get_chat_history(user)
+        chat_history = "\n".join([
+            f"{'User' if msg.is_user else 'Assistant'}: {msg.text}"
+            for msg in messages_obj
+        ])
+
         if user_state['state'] == "EMOTION_DECIDER":
-            emotion = self.openai_llm.emotion_retriever(user_message=message)
+            emotion = self.openai_llm.emotion_retriever(user_message=message, chat_history=chat_history)
             self.set_emotion(emotion, user)
             if 'Positive' in user_state['emotion']:
                 self.transition("ASK_EXERCISE", user)
@@ -78,7 +84,7 @@ class StateMachine:
                 self.transition("SUPER_STATE_EVENT", user)
 
         if user_state['state'] == "ASK_EXERCISE_DECIDER":
-            response = self.openai_llm.response_retriever(user_message=message)
+            response = self.openai_llm.response_retriever(user_message=message, chat_history=chat_history)
             self.set_response(response, user)
             if 'Yes' in user_state['response']:
                 self.transition("EXERCISE_SUGGESTION", user)
@@ -86,7 +92,7 @@ class StateMachine:
                 self.transition("THANKS", user)
 
         if user_state['state'] == "EXERCISE_SUGGESTION_DECIDER":
-            response = self.openai_llm.response_retriever(user_message=message)
+            response = self.openai_llm.response_retriever(user_message=message, chat_history=chat_history)
             self.set_response(response, user)
             if 'Yes' in user_state['response']:
                 self.transition("FEEDBACK", user)
@@ -94,7 +100,7 @@ class StateMachine:
                 self.transition("LIKE_ANOTHER_EXERCSISE", user)
 
         if user_state['state'] == "LIKE_ANOTHER_EXERCSISE_DECIDER":
-            response = self.openai_llm.response_retriever(user_message=message)
+            response = self.openai_llm.response_retriever(user_message=message, chat_history=chat_history)
             self.set_response(response, user)
             if 'Yes' in user_state['response']:
                 self.transition("EXERCISE_SUGGESTION", user)

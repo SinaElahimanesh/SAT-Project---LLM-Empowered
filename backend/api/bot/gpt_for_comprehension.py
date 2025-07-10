@@ -30,13 +30,13 @@ class LLM:
 class OpenAILLM(LLM):
     def __init__(self, model: str = "gpt-4o-mini") -> None:
         api_key = os.getenv('OPENAI_API_KEY'),
-        self.client = client 
+        self.client = client
         self.temperature = 0.01
         self.model = model
 
     def read_prompt(self, prompt_file: str) -> str:
         with open(f'api/bot/Prompts/{prompt_file}', "r", encoding="utf-8") as file:
-            return file.read() 
+            return file.read()
 
     def chat(self, system_message: str, user_message: str) -> str:
         response = self.client.chat.completions.create(
@@ -56,12 +56,12 @@ class OpenAILLM(LLM):
             response_format=response_format,
         )
         return response.choices[0].message.parsed
-    
-    def emotion_retriever(self, user_message: str) -> str:
-        return self.chat(system_message=self.read_prompt("emotion_retriever.md"), user_message=user_message)
-    
-    def response_retriever(self, user_message: str) -> str:
-        return self.chat(system_message=self.read_prompt("response_retriever.md"), user_message=user_message)
+
+    def emotion_retriever(self, user_message: str, chat_history: str) -> str:
+        return self.chat(system_message="Chat History:" + chat_history + "\n\n" + self.read_prompt("emotion_retriever.md"), user_message=user_message)
+
+    def response_retriever(self, user_message: str, chat_history: str) -> str:
+        return self.chat(system_message="Chat History:" + chat_history + "\n\n" + self.read_prompt("response_retriever.md"), user_message=user_message)
 
 
 class OpenAIBatchILLM(LLM):
@@ -115,7 +115,7 @@ class OpenAIBatchILLM(LLM):
             f.write(req_json)
             f.write(b"\n")
         f.seek(0)
-        
+
         batch_input_file = self.client.files.create(
             file=f,
             purpose="batch"

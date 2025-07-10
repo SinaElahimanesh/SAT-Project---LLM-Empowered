@@ -11,5 +11,6 @@ Your Response: Negative
 
 WARNING 1: The user message's language is in Farsi.
 WARNING 2: Only and Only generate one token from the list below:
+WARNING 3: You should consider chat history for your judgement.
 
 ['Negative', 'Antisocial', 'Positive']
