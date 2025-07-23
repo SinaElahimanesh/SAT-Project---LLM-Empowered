@@ -99,7 +99,7 @@ debug.py
 backend/db.sqlite3
 backend/debug.md
 backend/debug2.md
-/backend/api/migrations/__pycache__
+backend/api/migrations/__pycache__
 backend/api/migrations/__pycache__/__init__.cpython-313.pyc
 backend/api/migrations/__pycache__/0001_initial.cpython-313.pyc
 backend/api/migrations/__pycache__/0002_message_is_user_usermemorystate.cpython-313.pyc
