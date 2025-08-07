@@ -24,9 +24,9 @@ class StateMachine:
         if day == 8:
             return None
         elif 1 <= day <= 7:
-
-            start_exercise = (day - 1) * 3 + 1
-            return list(range(start_exercise, start_exercise + 3))
+            # Changed to cumulative: day 1 = [1,2,3], day 2 = [1,2,3,4,5,6], etc.
+            end_exercise = day * 3
+            return list(range(1, end_exercise + 1))
         else:
             return [1, 2, 3]
 
