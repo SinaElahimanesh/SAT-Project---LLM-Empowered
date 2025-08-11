@@ -45,7 +45,7 @@ def simple_bot_response(history, user_message):
     random_exercises = get_random_exercises(5)
 
     system_prompt = load_system_prompt()
-    formatted_system_prompt = system_prompt.format(random_exercises=random_exercises)
+    formatted_system_prompt = system_prompt.format(random_exercises=random_exercises, memory="")
 
     messages = [{"role": "system", "content": formatted_system_prompt}]
     if history:

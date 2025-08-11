@@ -1,18 +1,308 @@
+from api.models import Message, UserMemoryState, UserDayProgress
 from api.bot.gpt import openai_req_generator
-from api.bot.Memory.LLM_Memory import MemoryManager
-from api.bot.gpt_recommendations import create_recommendations
-from api.bot.gpt_for_comprehension import OpenAILLM
 from api.bot.gpt_for_statedetection import if_data_sufficient_for_state_change
-from api.bot.RAG.gpt_explainability import create_exercise_explanation
+from api.bot.Memory.LLM_Memory import MemoryManager
+from api.bot.gpt_for_comprehension import OpenAILLM
+from api.bot.gpt_recommendations import create_recommendations
 from api.bot.RAG.llm_excercise_suggestor import suggest_exercises, exercises
-from api.models import UserDayProgress
+from api.bot.simple_bot import get_random_exercises
+from api.bot.RAG.gpt_explainability import create_exercise_explanation
+import json
+import re
+import time
+import threading
+from django.db.models import Max
 
+class RepetitionPrevention:
+    """Global repetition prevention system that tracks all phrases used across the entire conversation"""
+
+    def __init__(self):
+        self.used_phrases = set()
+        self.used_questions = set()
+        self.used_empathy_phrases = set()
+        self.used_transitions = set()
+        self.used_words = {}  # Track word frequency
+        self.problematic_words = {
+            'کمک': 0,
+            'متاسفم': 0,
+            'می‌تونم': 0,
+            'می‌خوام': 0,
+            'اینجام': 0,
+            'گوش': 0,
+            'صحبت': 0,
+            'احساس': 0,
+            'ناراحت': 0,
+            'خوشحال': 0,
+            'واقعاً': 0,
+            'وای': 0,
+            'اوه': 0,
+            'باشه': 0,
+            'مشکلی': 0,
+            'احترام': 0,
+            'دوست': 0,
+            'طبیعی': 0,
+            'گرم': 0,
+            'صمیمی': 0
+        }
+
+    def add_phrase(self, phrase, category="general"):
+        """Add a phrase to the used phrases set and track word frequency"""
+        if phrase:
+            # Clean and normalize the phrase
+            cleaned_phrase = self._clean_phrase(phrase)
+            if cleaned_phrase:
+                self.used_phrases.add(cleaned_phrase)
+
+                # Track word frequency
+                self._track_word_frequency(cleaned_phrase)
+
+                # Categorize phrases for better tracking
+                if category == "question":
+                    self.used_questions.add(cleaned_phrase)
+                elif category == "empathy":
+                    self.used_empathy_phrases.add(cleaned_phrase)
+                elif category == "transition":
+                    self.used_transitions.add(cleaned_phrase)
+
+    def _track_word_frequency(self, phrase):
+        """Track frequency of problematic words"""
+        words = phrase.split()
+        for word in words:
+            if word in self.problematic_words:
+                self.problematic_words[word] += 1
+            if word in self.used_words:
+                self.used_words[word] += 1
+            else:
+                self.used_words[word] = 1
+
+    def get_overused_words(self, threshold=2):
+        """Get words that have been used too frequently"""
+        overused = {}
+        for word, count in self.problematic_words.items():
+            if count >= threshold:
+                overused[word] = count
+        return overused
+
+    def is_word_overused(self, word, threshold=2):
+        """Check if a word has been used too frequently"""
+        return self.problematic_words.get(word, 0) >= threshold
+
+    def _clean_phrase(self, phrase):
+        """Clean and normalize a phrase for comparison"""
+        if not phrase:
+            return ""
+
+        # Remove extra whitespace and normalize
+        cleaned = re.sub(r'\s+', ' ', phrase.strip())
+        # Remove punctuation for comparison
+        cleaned = re.sub(r'[؟،.!?]', '', cleaned)
+        return cleaned.lower()
+
+    def is_phrase_used(self, phrase, category="general"):
+        """Check if a phrase has been used before"""
+        if not phrase:
+            return False
+
+        cleaned_phrase = self._clean_phrase(phrase)
+        if category == "question":
+            return cleaned_phrase in self.used_questions
+        elif category == "empathy":
+            return cleaned_phrase in self.used_empathy_phrases
+        elif category == "transition":
+            return cleaned_phrase in self.used_transitions
+        else:
+            return cleaned_phrase in self.used_phrases
+
+    def get_unused_phrases(self, phrase_list, category="general"):
+        """Get phrases from a list that haven't been used yet"""
+        return [phrase for phrase in phrase_list if not self.is_phrase_used(phrase, category)]
+
+    def reset_for_user(self, user_id):
+        """Reset repetition prevention for a specific user"""
+        # For now, we'll keep the global tracking but could implement per-user tracking later
+        pass
+
+class MessageBuffer:
+    """Handles buffering of rapid successive messages from users"""
+    
+    def __init__(self):
+        self.processing_users = {}  # user_id -> processing status
+        self.message_buffers = {}   # user_id -> list of buffered messages
+        self.lock = threading.Lock()
+    
+    def is_user_processing(self, user_id):
+        """Check if a user is currently being processed"""
+        with self.lock:
+            return user_id in self.processing_users and self.processing_users[user_id]
+    
+    def start_processing(self, user_id):
+        """Mark that processing has started for a user"""
+        with self.lock:
+            self.processing_users[user_id] = True
+            if user_id not in self.message_buffers:
+                self.message_buffers[user_id] = []
+    
+    def end_processing(self, user_id):
+        """Mark that processing has ended for a user"""
+        with self.lock:
+            self.processing_users[user_id] = False
+            # Clear the buffer after processing
+            if user_id in self.message_buffers:
+                self.message_buffers[user_id] = []
+    
+    def add_message(self, user_id, message):
+        """Add a message to the buffer for a user"""
+        with self.lock:
+            if user_id not in self.message_buffers:
+                self.message_buffers[user_id] = []
+            self.message_buffers[user_id].append(message)
+    
+    def get_buffered_messages(self, user_id):
+        """Get all buffered messages for a user and clear the buffer"""
+        with self.lock:
+            if user_id in self.message_buffers:
+                messages = self.message_buffers[user_id].copy()
+                self.message_buffers[user_id] = []
+                return messages
+            return []
+    
+    def concatenate_messages(self, messages):
+        """Concatenate multiple messages into a single message"""
+        if not messages:
+            return ""
+        # Join messages with space, but handle cases where messages might already have punctuation
+        concatenated = " ".join(messages)
+        # Clean up any double spaces
+        concatenated = re.sub(r'\s+', ' ', concatenated).strip()
+        return concatenated
+    
+    def has_buffered_messages(self, user_id):
+        """Check if there are any buffered messages for a user"""
+        with self.lock:
+            return user_id in self.message_buffers and len(self.message_buffers[user_id]) > 0
 
 class StateMachine:
     def __init__(self):
-        self.user_states = {}  # Dictionary to store per-user state
+        self.user_states = {}
         self.memory_manager = MemoryManager()
-        self.openai_llm = OpenAILLM(model="gpt-4o-mini")
+        self.openai_llm = OpenAILLM()
+        self.repetition_prevention = RepetitionPrevention()
+        self.message_buffer = MessageBuffer()
+
+        # Predefined phrase banks for variety
+        self.empathy_phrases = [
+            "وای، این واقعاً سخته...",
+            "می‌تونم بفهمم چه احساسی داری",
+            "این اتفاق تأثیر زیادی رویت گذاشته",
+            "واقعاً ناراحت‌کننده‌ست...",
+            "این تجربه سختی بوده برات",
+            "می‌فهمم که چقدر سخت بوده",
+            "این موضوع واقعاً مهمه",
+            "وای، این واقعاً دردناک بوده...",
+            "می‌تونم تصور کنم چه احساسی داری",
+            "این تجربه واقعاً دشوار بوده",
+            "این اتفاق تأثیر عمیقی رویت گذاشته",
+            "واقعاً ناراحت‌کننده‌ست...",
+            "می‌فهمم که چقدر سخت بوده برات",
+            "این تجربه واقعاً دردناک بوده",
+            "این موضوع واقعاً ناراحت‌کننده‌ست",
+            "می‌فهمم که چقدر دشوار بوده",
+            "این تجربه واقعاً تأثیرگذار بوده",
+            "وای، این واقعاً سخته...",
+            "می‌تونم بفهمم که چقدر ناراحت‌کننده‌ست",
+            "این تجربه سختی بوده برات",
+            "امیدوارم بتونم کمکت کنم",
+            "اگر نیاز به صحبت داری، من اینجا هستم",
+            "این اتفاق واقعاً ناراحت‌کننده‌ست",
+            "می‌خوام بدونم چطور کمکت کنم",
+            "اگر دوست داری، می‌تونی بیشتر بگی",
+            "امیدوارم حالت بهتر بشه",
+            "این تجربه سختی بوده",
+            "می‌فهمم چه احساسی داری",
+            "حق با شماست",
+            "این احساس طبیعی است",
+            "کاملاً درکت می‌کنم",
+            "این تجربه واقعاً ناراحت‌کننده‌ست",
+            "می‌تونم بفهمم که چقدر سخت بوده",
+            "این اتفاق تأثیر عمیقی روی زندگی‌ات گذاشته",
+            "می‌فهمم که این تجربه چقدر می‌تونه سخت باشه",
+            "این موضوع واقعاً ناراحت‌کننده‌ست",
+            "می‌تونم تصور کنم چه احساسی داری",
+            "این تجربه واقعاً دشوار بوده",
+            "این اتفاق تأثیر زیادی رویت گذاشته",
+            "می‌فهمم که چقدر سخت بوده برات",
+            "این تجربه واقعاً دردناک بوده",
+            "این موضوع واقعاً ناراحت‌کننده‌ست",
+        ]
+        
+        # Alternative phrases to avoid repetition
+        self.alternative_help_phrases = [
+            "اگر دوست داری، می‌تونی بیشتر بگی",
+            "من اینجا هستم تا گوش بدم",
+            "اگر نیاز به صحبت داری، بگو",
+            "می‌تونی بیشتر توضیح بدی",
+            "اگر دوست داری، ادامه بده",
+            "من گوش می‌کنم",
+            "اگر نیاز داری، بگو",
+            "می‌تونی بیشتر بگی",
+            "اگر دوست داری، ادامه بده",
+            "من اینجا هستم",
+            "اگر نیاز داری، بگو",
+            "می‌تونی بیشتر توضیح بدی",
+            "اگر دوست داری، بگو",
+            "من گوش می‌کنم",
+            "اگر نیاز داری، ادامه بده",
+        ]
+        
+        self.alternative_empathy_phrases = [
+            "این تجربه سختی بوده",
+            "این اتفاق تأثیر زیادی رویت گذاشته",
+            "این موضوع واقعاً مهمه",
+            "این تجربه واقعاً دشوار بوده",
+            "این اتفاق تأثیر عمیقی رویت گذاشته",
+            "این تجربه واقعاً دردناک بوده",
+            "این موضوع واقعاً ناراحت‌کننده‌ست",
+            "این تجربه واقعاً تأثیرگذار بوده",
+            "این تجربه سختی بوده برات",
+            "این اتفاق تأثیر زیادی روی زندگی‌ات گذاشته",
+            "این تجربه واقعاً ناراحت‌کننده‌ست",
+            "این موضوع واقعاً مهمه",
+            "این تجربه واقعاً دشوار بوده",
+            "این اتفاق تأثیر عمیقی رویت گذاشته",
+            "این تجربه واقعاً دردناک بوده",
+        ]
+
+        self.question_phrases = [
+            "حالت چطوره؟",
+            "الان چه احساسی داری؟",
+            "حال روحی‌ت چطوره؟",
+            "چه حسی داری الان؟",
+            "با توجه به اتفاقی که گفتی، الان چه احساسی داری؟",
+            "این اتفاق چه تأثیری رویت گذاشته؟",
+            "چه حسی نسبت به این موضوع داری؟",
+            "اخیراً اتفاق خاصی افتاده که بخوای درباره‌اش صحبت کنی؟",
+            "در چند روز گذشته حادثه‌ای رخ داده که روی حالت تأثیر گذاشته باشه؟",
+            "اخیراً اتفاقی افتاده که بخوای درباره‌اش صحبت کنیم؟",
+            "اتفاقی افتاده که بخوای درباره‌اش صحبت کنیم؟",
+            "اخیراً تجربه خاصی داشتی؟",
+            "این اتفاق چه زمانی رخ داده؟ اخیراً بوده یا مدتیه؟",
+            "این رویداد اخیراً اتفاق افتاده یا مدتیه؟",
+            "این اتفاق چه زمانی برات رخ داده؟",
+            "این رویداد اخیراً بوده یا مدتیه؟",
+            "چه زمانی این اتفاق افتاده؟",
+            "این رخداد چه زمانی برات اتفاق افتاده؟",
+            "این اتفاق اخیراً بوده یا مدتیه؟",
+            "این رویداد چه زمانی رخ داده؟",
+            "این حادثه اخیراً اتفاق افتاده؟",
+            "این اتفاق چه مدت پیش رخ داده؟",
+            "این رویداد در چند روز گذشته بوده؟",
+            "این رخداد چه زمانی برات اتفاق افتاده؟",
+            "این اتفاق اخیراً بوده یا مدتیه؟",
+            "این رویداد چه زمانی رخ داده؟",
+            "این حادثه اخیراً اتفاق افتاده؟",
+            "این اتفاق چه مدت پیش رخ داده؟",
+            "این رویداد در چند روز گذشته بوده؟"
+        ]
 
     def get_user_day_progress(self, user):
         """Get or create day progress for a specific user"""
@@ -59,6 +349,11 @@ class StateMachine:
     def get_user_state(self, user):
         """Get or create state for a specific user"""
         if user.id not in self.user_states:
+            # Get the next session ID for new users
+            from api.models import Message
+            latest_session = Message.objects.filter(user=user).aggregate(Max('session_id'))['session_id__max']
+            new_session_id = (latest_session or 0) + 1
+            
             self.user_states[user.id] = {
                 'state': "GREETING_FORMALITY_NAME",
                 'message_count': 0,
@@ -66,29 +361,129 @@ class StateMachine:
                 'response': None,
                 'stage': user.stage,
                 'exercises_done': set(),
-                'current_day': self.get_user_day_progress(user)
+                'current_day': self.get_user_day_progress(user),
+                'current_session_id': new_session_id,
+                'emotion_message_count': 0,
+                'event_message_count': 0
             }
         else:
             self.user_states[user.id]['current_day'] = self.get_user_day_progress(user)
+            # Ensure current_session_id exists for existing users
+            if 'current_session_id' not in self.user_states[user.id]:
+                from api.models import Message
+                latest_session = Message.objects.filter(user=user).aggregate(Max('session_id'))['session_id__max']
+                self.user_states[user.id]['current_session_id'] = (latest_session or 0) + 1
+            
+            # Ensure state-specific counters exist for existing users
+            if 'emotion_message_count' not in self.user_states[user.id]:
+                self.user_states[user.id]['emotion_message_count'] = 0
+            if 'event_message_count' not in self.user_states[user.id]:
+                self.user_states[user.id]['event_message_count'] = 0
         return self.user_states[user.id]
 
     def transition(self, new_state, user):
         user_state = self.get_user_state(user)
         print(f"Transitioning from {user_state['state']} to {new_state}")
         user_state['state'] = new_state
+        
+        # Reset state-specific message counters when transitioning
+        if new_state == "EMOTION":
+            user_state['emotion_message_count'] = 0
+        elif new_state == "SUPER_STATE_EVENT":
+            user_state['event_message_count'] = 0
 
-    def ask_llm(self, prompt_file, message, user):
+    def ask_llm(self, prompt_file, message, user, transition_info=None):
         with open(f'api/bot/Prompts/{prompt_file}', "r", encoding="utf-8") as file:
             system_prompt = file.read()
-            memory_context = self.memory_manager.format_memory_for_prompt(user)
+            user_state = self.get_user_state(user)
+            memory_context = self.memory_manager.format_memory_for_prompt(
+                user, 
+                session_id=user_state.get('current_session_id')
+            )
             with open('debug.md', 'w', encoding="utf-8") as file:
                 file.write(memory_context)
             if memory_context != "":
                 system_prompt = system_prompt.format(memory=memory_context)
 
+        # Add transition information to the prompt if provided
+        if transition_info:
+            transition_context = f"\n\n### 🔍 وضعیت انتقال فعلی:\n**نتیجه انتقال: {transition_info}**\n"
+            system_prompt += transition_context
+
+        # Add global repetition prevention context to the prompt
+        repetition_context = self._get_repetition_prevention_context()
+        system_prompt += f"\n\n### ⚠️ هشدار مهم - جلوگیری از تکرار در کل مکالمه:\n{repetition_context}"
+
         # print(f'system_prompt={system_prompt}')
         # print(f'user_prompt={message}')
-        return openai_req_generator(system_prompt=system_prompt, user_prompt=message, json_output=False, temperature=0.1)
+        response = openai_req_generator(system_prompt=system_prompt, user_prompt=message, json_output=False, temperature=0.1)
+        
+        # Track the response for repetition prevention
+        self._track_response_for_repetition(response)
+        
+        return response
+    
+    def _get_repetition_prevention_context(self):
+        """Generate context about used phrases to prevent repetition"""
+        context = "**قبل از پاسخ دادن، این عبارات قبلاً استفاده شده‌اند و نباید تکرار شوند:**\n\n"
+        
+        if self.repetition_prevention.used_empathy_phrases:
+            context += "**عبارات همدردی استفاده شده:**\n"
+            for phrase in list(self.repetition_prevention.used_empathy_phrases)[-5:]:  # Show last 5
+                context += f"- {phrase}\n"
+            context += "\n"
+        
+        if self.repetition_prevention.used_questions:
+            context += "**سوالات استفاده شده:**\n"
+            for phrase in list(self.repetition_prevention.used_questions)[-5:]:  # Show last 5
+                context += f"- {phrase}\n"
+            context += "\n"
+        
+        # Add overused words warning
+        overused_words = self.repetition_prevention.get_overused_words(threshold=2)
+        if overused_words:
+            context += "**⚠️ کلمات استفاده شده بیش از حد (نباید تکرار شوند):**\n"
+            for word, count in overused_words.items():
+                context += f"- '{word}' ({count} بار استفاده شده)\n"
+            context += "\n"
+        
+        context += "**نکات مهم برای صحبت دوستانه:**\n"
+        context += "1. هرگز هیچ یک از عبارات بالا را تکرار نکنید\n"
+        context += "2. همیشه از عبارات جدید و متنوع استفاده کنید\n"
+        context += "3. از بانک عبارات متنوع موجود استفاده کنید\n"
+        context += "4. اگر تمام عبارات استفاده شده‌اند، عبارات جدید بسازید\n"
+        context += "5. از تکرار عبارات 'متاسفم که'، 'می‌تونم بگم'، 'می‌خوام بدونم' خودداری کنید\n"
+        context += "6. همیشه ابتدا تاریخچه مکالمه را بررسی کنید تا از تکرار جلوگیری کنید\n"
+        context += "7. اگر کاربر قبلاً اطلاعاتی داده، به آن اشاره کنید و دوباره نپرسید\n"
+        context += "8. از سوالات زمان‌محور متنوع استفاده کنید (چه زمانی، اخیراً، مدتیه)\n"
+        context += "9. طبیعی و دوستانه صحبت کنید، نه مثل ربات\n"
+        context += "10. از ایموجی‌ها به ندرت و فقط در مواقع مناسب استفاده کنید\n"
+        context += "11. از تکرار ایموجی 😊 در هر پیام خودداری کنید\n"
+        context += "12. حداکثر یک ایموجی در هر پیام استفاده کنید\n"
+        context += "13. از تکرار کلمات کلیدی مثل 'کمک'، 'متاسفم'، 'می‌تونم' خودداری کنید\n"
+        context += "14. به جای 'کمکت کنم' از عبارات متنوع استفاده کنید\n"
+        context += "15. به جای 'متاسفم' از عبارات همدردی متنوع استفاده کنید\n"
+        context += "16. به جای 'می‌تونم' از ساختارهای جملات متنوع استفاده کنید\n"
+        
+        return context
+    
+    def _track_response_for_repetition(self, response):
+        """Track the response to prevent future repetition"""
+        if not response:
+            return
+        
+        # Extract sentences and track them
+        sentences = re.split(r'[.!?؟]', response)
+        for sentence in sentences:
+            sentence = sentence.strip()
+            if sentence and len(sentence) > 10:  # Only track meaningful sentences
+                # Determine category based on content
+                if any(word in sentence for word in ['احساس', 'حس', 'ناراحت', 'خوشحال', 'متاسفم', 'درکت', 'فهمم']):
+                    self.repetition_prevention.add_phrase(sentence, "empathy")
+                elif '?' in sentence or '؟' in sentence:
+                    self.repetition_prevention.add_phrase(sentence, "question")
+                else:
+                    self.repetition_prevention.add_phrase(sentence, "general")
 
     def customize_excercises(self, prompt_file, user, excercises):
         with open(f'api/bot/Prompts/{prompt_file}', "r", encoding="utf-8") as file:
@@ -103,12 +498,28 @@ class StateMachine:
         return openai_req_generator(system_prompt=system_prompt, user_prompt=None, json_output=False, temperature=0.1)
 
     def if_transition(self, user, data):
+        # Get current session messages
         messages_obj = self.memory_manager.get_chat_history(user)
         chat_history = "\n".join([
             f"{'User' if msg.is_user else 'Assistant'}: {msg.text}"
             for msg in messages_obj
         ])
-        transit = if_data_sufficient_for_state_change(data, chat_history)
+        
+        # For emotion and event states, only consider current session history
+        # For other states (like greeting), consider both current session and previous memory
+        if data in ["emotion.md", "event.md"]:
+            # Only use current session history for emotion and event states
+            full_context = f"تاریخچه جلسه فعلی:\n{chat_history}"
+        else:
+            # For other states, consider both current session and previous memory
+            user_memory = self.memory_manager.get_current_memory(user)
+            full_context = ""
+            if user_memory:
+                full_context += f"اطلاعات قبلی کاربر از جلسات گذشته:\n{user_memory}\n\n"
+            if chat_history:
+                full_context += f"تاریخچه جلسه فعلی:\n{chat_history}"
+        
+        transit = if_data_sufficient_for_state_change(data, full_context)
         return transit
 
     def state_handler(self, message, user):
@@ -154,20 +565,34 @@ class StateMachine:
                 self.transition("THANKS", user)
 
         if user_state['state'] == "GREETING_FORMALITY_NAME":
+            # Check transition status for greeting
+            transit = self.if_transition(user, "greeting.md")
             response = self.ask_llm(
-                "greeting_formality_name.md", message, user)
+                "greeting_formality_name.md", message, user, transit)
             return response, create_recommendations(response, self.memory_manager.get_current_memory(user)), None, None
 
         elif user_state['state'] == "EMOTION":
-            response = self.ask_llm("emotion.md", message, user)
+            # Check transition status for emotion
+            transit = self.if_transition(user, "emotion.md")
+            response = self.ask_llm("emotion.md", message, user, transit)
             return response, create_recommendations(response, self.memory_manager.get_current_memory(user)), None, None
 
         elif user_state['state'] == "SUPER_STATE_EVENT":
-            response = self.ask_llm("ask_all_event.md", message, user)
+            # Check transition status for event
+            transit = self.if_transition(user, "event.md")
+            response = self.ask_llm("ask_all_event.md", message, user, transit)
+            return response, create_recommendations(response, self.memory_manager.get_current_memory(user)), None, None
+
+        elif user_state['state'] == "OPEN_ENDED_CONVERSATION":
+            response = self.ask_llm("open_ended_conversation.md", message, user)
             return response, create_recommendations(response, self.memory_manager.get_current_memory(user)), None, None
 
         elif user_state['state'] == "ASK_EXERCISE":
             response = self.ask_llm("ask_exercise.md", message, user)
+            return response, create_recommendations(response, self.memory_manager.get_current_memory(user)), None, None
+
+        elif user_state['state'] == "EXERCISE_EXPLANATION":
+            response = self.ask_llm("exercise_explanation.md", message, user)
             return response, create_recommendations(response, self.memory_manager.get_current_memory(user)), None, None
 
         elif user_state['state'] == "EXERCISE_SUGGESTION":
@@ -189,6 +614,13 @@ class StateMachine:
                 exercise_content, user_memory)
             return response, create_recommendations(response, self.memory_manager.get_current_memory(user)), explainability, exercise_number
 
+        elif user_state['state'] == "EXERCISE_EXPLANATION":
+            # Use the exercise explanation prompt to provide detailed information
+            # and handle follow-up questions about the exercise
+            user_memory = self.memory_manager.get_current_memory(user)
+            response = self.ask_llm("exercise_explanation.md", message, user)
+            return response, create_recommendations(response, self.memory_manager.get_current_memory(user)), None, None
+
         elif user_state['state'] == "FEEDBACK":
             response = self.ask_llm("feedback.md", message, user)
             return response, create_recommendations(response, self.memory_manager.get_current_memory(user)), None, None
@@ -209,62 +641,138 @@ class StateMachine:
             return "میتونی بیشتر توضیح بدی", [], None, None
 
     def execute_state(self, message, user):
-        user_state = self.get_user_state(user)
-        print(f"You are in the {user_state['state']} state")
+        user_id = user.id
+        
+        # Check if user is currently being processed
+        if self.message_buffer.is_user_processing(user_id):
+            # Add message to buffer and return None to indicate processing is ongoing
+            self.message_buffer.add_message(user_id, message)
+            return None, None, None, None, None
+        
+        # Start processing for this user
+        self.message_buffer.start_processing(user_id)
+        
+        try:
+            # Get any buffered messages and concatenate with current message
+            buffered_messages = self.message_buffer.get_buffered_messages(user_id)
+            if buffered_messages:
+                # Concatenate buffered messages with current message
+                all_messages = buffered_messages + [message]
+                final_message = self.message_buffer.concatenate_messages(all_messages)
+                print(f"Processing concatenated message for user {user_id}: {final_message}")
+            else:
+                final_message = message
+            
+            user_state = self.get_user_state(user)
+            print(f"You are in the {user_state['state']} state")
 
-        # update memory and increment message count
-        self.memory_manager.add_message(user=user, text=message, is_user=True)
+            # Reset repetition prevention for new sessions
+            if user_state['state'] == "GREETING_FORMALITY_NAME" and user_state['message_count'] == 0:
+                self.repetition_prevention = RepetitionPrevention()
 
-        # Check if we need to update memory summary
-        if user_state['message_count'] >= 4:
-            self.memory_manager.update_memory(user)
-            user_state['message_count'] = 0
+            # update memory and increment message count with current session ID
+            self.memory_manager.add_message(
+                user=user, 
+                text=final_message, 
+                is_user=True, 
+                session_id=user_state['current_session_id']
+            )
 
-        if user_state['state'] == "GREETING_FORMALITY_NAME":
-            transit = self.if_transition(user, "greeting.md")
-            print("transit", transit)
-            if "بله" in transit:
-                self.transition("EMOTION", user)
+            # Check if we need to update memory summary (only for current session)
+            if user_state['message_count'] >= 4:
+                self.memory_manager.update_memory(user)
+                user_state['message_count'] = 0
 
-        elif user_state['state'] == "EMOTION":
-            transit = self.if_transition(user, "emotion.md")
-            print("transit", transit)
-            if "بله" in transit:
-                self.transition("EMOTION_DECIDER", user)
+            if user_state['state'] == "GREETING_FORMALITY_NAME":
+                transit = self.if_transition(user, "greeting.md")
+                print("transit", transit)
+                if "بله" in transit:
+                    self.transition("EMOTION", user)
 
-        elif user_state['state'] == "SUPER_STATE_EVENT":
-            transit = self.if_transition(user, "event.md")
-            print("transit", transit)
-            if "بله" in transit:
-                self.transition("ASK_EXERCISE", user)
+            elif user_state['state'] == "EMOTION":
+                # Always process emotion state in each session
+                # Track messages in current state
+                if 'emotion_message_count' not in user_state:
+                    user_state['emotion_message_count'] = 0
+                user_state['emotion_message_count'] += 1
+                
+                transit = self.if_transition(user, "emotion.md")
+                print("transit", transit)
+                print(f"Emotion messages in current state: {user_state['emotion_message_count']}")
+                
+                # Only transition if we have sufficient emotion data AND at least 2 messages in this state
+                if "بله" in transit and user_state['emotion_message_count'] >= 2:
+                    self.transition("EMOTION_DECIDER", user)
 
-        elif user_state['state'] == "ASK_EXERCISE":
-            self.transition("ASK_EXERCISE_DECIDER", user)
+            elif user_state['state'] == "SUPER_STATE_EVENT":
+                # Always process event state in each session
+                # Track messages in current state
+                if 'event_message_count' not in user_state:
+                    user_state['event_message_count'] = 0
+                user_state['event_message_count'] += 1
+                
+                transit = self.if_transition(user, "event.md")
+                print("transit", transit)
+                print(f"Event messages in current state: {user_state['event_message_count']}")
+                
+                # Only transition if we have sufficient event data AND at least 2 messages in this state
+                if "بله" in transit and user_state['event_message_count'] >= 2:
+                    # Check if user wants to explain more (نمیدونی چی شد میخوای تعریف کنم برات)
+                    if "نمیدونی" in message or "تعریف کنم" in message:
+                        self.transition("OPEN_ENDED_CONVERSATION", user)
+                    else:
+                        self.transition("ASK_EXERCISE", user)
 
-        elif user_state['state'] == "EXERCISE_SUGGESTION":
-            self.transition("EXERCISE_SUGGESTION_DECIDER", user)
+            elif user_state['state'] == "OPEN_ENDED_CONVERSATION":
+                # After open-ended conversation, transition to ASK_EXERCISE
+                # Check if conversation has reached a natural end point
+                if len(messages_obj) >= 4:  # After sufficient conversation
+                    self.transition("ASK_EXERCISE", user)
 
-        elif user_state['state'] == "FEEDBACK":
-            self.transition("LIKE_ANOTHER_EXERCSISE", user)
+            elif user_state['state'] == "ASK_EXERCISE":
+                # Don't immediately transition to decider, stay in ASK_EXERCISE for exercise explanation
+                # Only transition when user shows clear intent to move to next stage
+                if "بله" in message or "آره" in message or "باشه" in message:
+                    self.transition("ASK_EXERCISE_DECIDER", user)
 
-        elif user_state['state'] == "LIKE_ANOTHER_EXERCSISE":
-            self.transition("LIKE_ANOTHER_EXERCSISE_DECIDER", user)
+            elif user_state['state'] == "EXERCISE_SUGGESTION":
+                # After suggesting exercise, transition to explanation state
+                self.transition("EXERCISE_EXPLANATION", user)
 
-        elif user_state['state'] == "THANKS":
-            self.transition("END", user)
+            elif user_state['state'] == "EXERCISE_EXPLANATION":
+                # Stay in explanation state until user shows clear intent to move forward
+                if "بله" in message or "آره" in message or "باشه" in message or "بگو" in message:
+                    self.transition("EXERCISE_SUGGESTION_DECIDER", user)
 
-        elif user_state['state'] == "END":
-            print("State machine has reached the end.")
+            elif user_state['state'] == "FEEDBACK":
+                self.transition("LIKE_ANOTHER_EXERCSISE", user)
 
-        response, recommendations, explainibility, excercise_number = self.state_handler(
-            message, user)
-        # print(response, recommendations)
+            elif user_state['state'] == "LIKE_ANOTHER_EXERCSISE":
+                self.transition("LIKE_ANOTHER_EXERCSISE_DECIDER", user)
 
-        self.memory_manager.add_message(
-            user=user, text=response, is_user=False)
-        user_state['message_count'] += 2
+            elif user_state['state'] == "THANKS":
+                self.transition("END", user)
 
-        return response, recommendations, user_state['state'], explainibility, excercise_number
+            elif user_state['state'] == "END":
+                print("State machine has reached the end.")
+
+            response, recommendations, explainibility, excercise_number = self.state_handler(
+                final_message, user)
+            # print(response, recommendations)
+
+            self.memory_manager.add_message(
+                user=user, 
+                text=response, 
+                is_user=False, 
+                session_id=user_state['current_session_id']
+            )
+            user_state['message_count'] += 2
+
+            return response, recommendations, user_state['state'], explainibility, excercise_number
+            
+        finally:
+            # Always end processing when done
+            self.message_buffer.end_processing(user_id)
 
     def set_emotion(self, emotion, user):
         user_state = self.get_user_state(user)
@@ -286,3 +794,72 @@ class StateMachine:
             'emotion': None,
             'response': None
         }
+
+    def reset_state_machine(self, user):
+        """Reset the state machine to initial state for a specific user"""
+        # Get the next session ID
+        from api.models import Message
+        latest_session = Message.objects.filter(user=user).aggregate(Max('session_id'))['session_id__max']
+        new_session_id = (latest_session or 0) + 1
+        
+        # Reset user state to initial values with new session
+        self.user_states[user.id] = {
+            'state': "GREETING_FORMALITY_NAME",
+            'message_count': 0,
+            'emotion': None,
+            'response': None,
+            'stage': user.stage,
+            'exercises_done': set(),
+            'current_day': self.get_user_day_progress(user),
+            'current_session_id': new_session_id,
+            'emotion_message_count': 0,
+            'event_message_count': 0
+        }
+        
+        # Reset repetition prevention for this user
+        self.repetition_prevention.reset_for_user(user.id)
+        
+        # Clear any buffered messages for this user
+        self.message_buffer.end_processing(user.id)
+        
+        print(f"State machine reset for user {user.id} to initial state with session {new_session_id}")
+        return {
+            'state': "GREETING_FORMALITY_NAME",
+            'message_count': 0,
+            'emotion': None,
+            'response': None,
+            'stage': user.stage,
+            'current_day': self.get_user_day_progress(user),
+            'session_id': new_session_id
+        }
+    
+    def process_buffered_messages(self, user):
+        """Process any buffered messages for a user"""
+        user_id = user.id
+        
+        # Check if user is currently being processed
+        if self.message_buffer.is_user_processing(user_id):
+            return None, None, None, None, None
+        
+        # Check if there are buffered messages
+        if not self.message_buffer.has_buffered_messages(user_id):
+            return None, None, None, None, None
+        
+        # Start processing for this user
+        self.message_buffer.start_processing(user_id)
+        
+        try:
+            # Get all buffered messages
+            buffered_messages = self.message_buffer.get_buffered_messages(user_id)
+            if buffered_messages:
+                final_message = self.message_buffer.concatenate_messages(buffered_messages)
+                print(f"Processing buffered messages for user {user_id}: {final_message}")
+                
+                # Process the concatenated message
+                return self.execute_state(final_message, user)
+            
+            return None, None, None, None, None
+            
+        finally:
+            # Always end processing when done
+            self.message_buffer.end_processing(user_id)
