@@ -47,7 +47,7 @@ def parse_exercise_number(exercise_num):
         return int(base_num.group(1)) if base_num else 0
 
 
-def get_daily_exercises(user, count=5):
+def get_daily_exercises(user, count=3):
     """Get daily exercises from the exercises directory based on user's daily progress."""
     current_day = get_user_day_progress(user)
     allowed_exercise_nums = get_day_allowed_exercises(current_day)
@@ -69,6 +69,8 @@ def get_daily_exercises(user, count=5):
     selected_exercises = random.sample(available_exercises, min(count, len(available_exercises)))
     selected_exercise_numbers = [ex["Exercise Number"] for ex in selected_exercises]
 
+    print(f"selected_exercise_numbers: {selected_exercise_numbers}")
+
     # Fetch the content of the selected exercises
     exercises_content = []
     for exercise_num in selected_exercise_numbers:
@@ -89,17 +91,22 @@ def simple_bot_response(history, user_message, user):
     Accepts a list of previous messages (history), a new user message, and the user object.
     Returns: (response, recommendations, updated_history)
     """
-    daily_exercises = get_daily_exercises(user, 5)
+    daily_exercises = get_daily_exercises(user, 3)
+
+    print(f"History: {history}")
 
     system_prompt = load_system_prompt()
     formatted_system_prompt = system_prompt.format(daily_exercises=daily_exercises, memory="")
 
     messages = [{"role": "system", "content": formatted_system_prompt}]
+    # Include only the last two messages from history (if any)
     if history:
-        messages.extend(history)
+        messages.extend(history[-3:])
     messages.append({"role": "user", "content": user_message})
 
-    response = openai_req_with_history(messages, temperature=0.1)
+    # print("messages:", messages)
+
+    response = openai_req_with_history(messages, temperature=0.4)
     updated_history = (history or []) + [
         {"role": "user", "content": user_message},
         {"role": "assistant", "content": response}
