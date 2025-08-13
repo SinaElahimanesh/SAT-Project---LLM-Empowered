@@ -5,7 +5,7 @@ from api.bot.Memory.LLM_Memory import MemoryManager
 from api.bot.gpt_for_comprehension import OpenAILLM
 from api.bot.gpt_recommendations import create_recommendations
 from api.bot.RAG.llm_excercise_suggestor import suggest_exercises, exercises
-from api.bot.simple_bot import get_random_exercises
+from api.bot.simple_bot import get_daily_exercises
 from api.bot.RAG.gpt_explainability import create_exercise_explanation
 import json
 import re
