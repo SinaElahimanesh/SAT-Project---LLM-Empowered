@@ -2,11 +2,12 @@ import os
 from openai import OpenAI
 from dotenv import load_dotenv
 
-load_dotenv()
+load_dotenv(override=True)
 
 client = OpenAI(
     api_key=os.getenv('OPENAI_API_KEY'),
 )
+
 
 def openai_req_generator(system_prompt, json_output=False, temperature=0.01):
     if json_output:

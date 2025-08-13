@@ -551,11 +551,11 @@ class StateMachine:
             else:
                 self.transition("THANKS", user)
 
-        if user_state['state'] == "EXERCISE_SUGGESTION_DECIDER":
+        if user_state['state'] == "SUGGESTION_TO_EXPLANATION_DECIDER":
             response = self.openai_llm.response_retriever(user_message=message, chat_history=chat_history)
             self.set_response(response, user)
             if 'Yes' in user_state['response']:
-                self.transition("FEEDBACK", user)
+                self.transition("EXERCISE_EXPLANATION", user)
             else:
                 self.transition("LIKE_ANOTHER_EXERCSISE", user)
 
@@ -594,10 +594,6 @@ class StateMachine:
             response = self.ask_llm("ask_exercise.md", message, user)
             return response, create_recommendations(response, self.memory_manager.get_current_memory(user)), None, None
 
-        elif user_state['state'] == "EXERCISE_EXPLANATION":
-            response = self.ask_llm("exercise_explanation.md", message, user)
-            return response, create_recommendations(response, self.memory_manager.get_current_memory(user)), None, None
-
         elif user_state['state'] == "EXERCISE_SUGGESTION":
             user_memory = self.memory_manager.get_current_memory(user)
 
@@ -625,9 +621,6 @@ class StateMachine:
             return response, create_recommendations(response, self.memory_manager.get_current_memory(user)), explainability, exercise_number
 
         elif user_state['state'] == "EXERCISE_EXPLANATION":
-            # Use the exercise explanation prompt to provide detailed information
-            # and handle follow-up questions about the exercise
-            user_memory = self.memory_manager.get_current_memory(user)
             response = self.ask_llm("exercise_explanation.md", message, user)
             return response, create_recommendations(response, self.memory_manager.get_current_memory(user)), None, None
 
@@ -747,12 +740,11 @@ class StateMachine:
 
             elif user_state['state'] == "EXERCISE_SUGGESTION":
                 # After suggesting exercise, transition to explanation state
-                self.transition("EXERCISE_EXPLANATION", user)
+                self.transition("SUGGESTION_TO_EXPLANATION_DECIDER", user)
 
             elif user_state['state'] == "EXERCISE_EXPLANATION":
                 # Stay in explanation state until user shows clear intent to move forward
-                if "بله" in message or "آره" in message or "باشه" in message or "بگو" in message:
-                    self.transition("EXERCISE_SUGGESTION_DECIDER", user)
+                self.transition("FEEDBACK", user)
 
             elif user_state['state'] == "FEEDBACK":
                 self.transition("LIKE_ANOTHER_EXERCSISE", user)

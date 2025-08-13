@@ -2,11 +2,12 @@ import os
 from openai import OpenAI
 from dotenv import load_dotenv
 
-load_dotenv()
+load_dotenv(override=True)
 
 client = OpenAI(
     api_key=os.getenv('OPENAI_API_KEY'),
 )
+
 
 def openai_req_generator(system_prompt, user_prompt=None, json_output=False, temperature=0.01):
     messages = [{"role": "system", "content": system_prompt}]
@@ -31,6 +32,7 @@ def openai_req_generator(system_prompt, user_prompt=None, json_output=False, tem
 
 # New function for passing full message history
 
+
 def openai_req_with_history(messages, temperature=0.01):
     chat_completion = client.chat.completions.create(
         messages=messages,
@@ -38,4 +40,3 @@ def openai_req_with_history(messages, temperature=0.01):
         temperature=temperature,
     )
     return chat_completion.choices[0].message.content
-

@@ -15,9 +15,8 @@ with open('api/bot/RAG/exercises_mapping.json', 'r', encoding='utf-8') as f:
 
 
 def load_system_prompt():
-
-
-// ...existing code...
+    with open(PROMPT_PATH, 'r', encoding='utf-8') as f:
+        return f.read()
 
 
 def get_user_day_progress(user):

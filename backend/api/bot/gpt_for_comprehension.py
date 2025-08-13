@@ -11,7 +11,7 @@ from openai.lib._parsing import type_to_response_format_param
 from api.bot.gpt import client
 
 
-load_dotenv()
+load_dotenv(override=True)
 
 
 class Message(TypedDict):

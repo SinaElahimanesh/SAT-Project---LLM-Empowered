@@ -2,7 +2,8 @@ from openai import OpenAI
 from dotenv import load_dotenv
 import os
 
-load_dotenv()
+load_dotenv(override=True)
+
 
 def feed_audio_to_ASR_modal(audio_path):
     client = OpenAI(
@@ -11,9 +12,8 @@ def feed_audio_to_ASR_modal(audio_path):
     audio_file = open(audio_path, "rb")
 
     transcription = client.audio.transcriptions.create(
-        model="whisper-1", 
+        model="whisper-1",
         file=audio_file
     )
 
     return transcription.text
-
