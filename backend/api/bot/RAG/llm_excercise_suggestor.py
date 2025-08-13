@@ -44,12 +44,9 @@ def suggest_exercises(done_exercises: List[str], user_memory: str, user_stage: s
             if exercise["Exercise Number"] not in done_exercises
         ]
 
-    # If no exercises available after day filtering, fall back to all available exercises
+    # If no exercises are available for the current day, return None.
     if not available_exercises:
-        available_exercises = [
-            exercise for exercise in exercises
-            if exercise["Exercise Number"] not in done_exercises
-        ]
+        return None, None
 
     # First get 3 potential exercises using the initial prompt
     with open('api/bot/RAG/prompt.md', 'r', encoding='utf-8') as f:
@@ -61,8 +58,8 @@ def suggest_exercises(done_exercises: List[str], user_memory: str, user_stage: s
     system_prompt = system_prompt.format(
         memory=user_memory,
         stage=user_stage,
-        done_before=','.join(done_exercises) if done_exercises else [],
-        exc=available_exercises,
+        done_before=','.join(done_exercises) if done_exercises else "None",
+        exc=json.dumps(available_exercises, ensure_ascii=False, indent=2),
     )
 
     potential_excs_nums = openai_req_generator(system_prompt=system_prompt).split(',')

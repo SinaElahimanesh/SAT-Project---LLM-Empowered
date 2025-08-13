@@ -13,6 +13,7 @@ import time
 import threading
 from django.db.models import Max
 
+
 class RepetitionPrevention:
     """Global repetition prevention system that tracks all phrases used across the entire conversation"""
 
@@ -122,26 +123,27 @@ class RepetitionPrevention:
         # For now, we'll keep the global tracking but could implement per-user tracking later
         pass
 
+
 class MessageBuffer:
     """Handles buffering of rapid successive messages from users"""
-    
+
     def __init__(self):
         self.processing_users = {}  # user_id -> processing status
         self.message_buffers = {}   # user_id -> list of buffered messages
         self.lock = threading.Lock()
-    
+
     def is_user_processing(self, user_id):
         """Check if a user is currently being processed"""
         with self.lock:
             return user_id in self.processing_users and self.processing_users[user_id]
-    
+
     def start_processing(self, user_id):
         """Mark that processing has started for a user"""
         with self.lock:
             self.processing_users[user_id] = True
             if user_id not in self.message_buffers:
                 self.message_buffers[user_id] = []
-    
+
     def end_processing(self, user_id):
         """Mark that processing has ended for a user"""
         with self.lock:
@@ -149,14 +151,14 @@ class MessageBuffer:
             # Clear the buffer after processing
             if user_id in self.message_buffers:
                 self.message_buffers[user_id] = []
-    
+
     def add_message(self, user_id, message):
         """Add a message to the buffer for a user"""
         with self.lock:
             if user_id not in self.message_buffers:
                 self.message_buffers[user_id] = []
             self.message_buffers[user_id].append(message)
-    
+
     def get_buffered_messages(self, user_id):
         """Get all buffered messages for a user and clear the buffer"""
         with self.lock:
@@ -165,7 +167,7 @@ class MessageBuffer:
                 self.message_buffers[user_id] = []
                 return messages
             return []
-    
+
     def concatenate_messages(self, messages):
         """Concatenate multiple messages into a single message"""
         if not messages:
@@ -175,11 +177,12 @@ class MessageBuffer:
         # Clean up any double spaces
         concatenated = re.sub(r'\s+', ' ', concatenated).strip()
         return concatenated
-    
+
     def has_buffered_messages(self, user_id):
         """Check if there are any buffered messages for a user"""
         with self.lock:
             return user_id in self.message_buffers and len(self.message_buffers[user_id]) > 0
+
 
 class StateMachine:
     def __init__(self):
@@ -234,7 +237,7 @@ class StateMachine:
             "این تجربه واقعاً دردناک بوده",
             "این موضوع واقعاً ناراحت‌کننده‌ست",
         ]
-        
+
         # Alternative phrases to avoid repetition
         self.alternative_help_phrases = [
             "اگر دوست داری، می‌تونی بیشتر بگی",
@@ -253,7 +256,7 @@ class StateMachine:
             "من گوش می‌کنم",
             "اگر نیاز داری، ادامه بده",
         ]
-        
+
         self.alternative_empathy_phrases = [
             "این تجربه سختی بوده",
             "این اتفاق تأثیر زیادی رویت گذاشته",
@@ -353,7 +356,7 @@ class StateMachine:
             from api.models import Message
             latest_session = Message.objects.filter(user=user).aggregate(Max('session_id'))['session_id__max']
             new_session_id = (latest_session or 0) + 1
-            
+
             self.user_states[user.id] = {
                 'state': "GREETING_FORMALITY_NAME",
                 'message_count': 0,
@@ -373,7 +376,7 @@ class StateMachine:
                 from api.models import Message
                 latest_session = Message.objects.filter(user=user).aggregate(Max('session_id'))['session_id__max']
                 self.user_states[user.id]['current_session_id'] = (latest_session or 0) + 1
-            
+
             # Ensure state-specific counters exist for existing users
             if 'emotion_message_count' not in self.user_states[user.id]:
                 self.user_states[user.id]['emotion_message_count'] = 0
@@ -385,7 +388,7 @@ class StateMachine:
         user_state = self.get_user_state(user)
         print(f"Transitioning from {user_state['state']} to {new_state}")
         user_state['state'] = new_state
-        
+
         # Reset state-specific message counters when transitioning
         if new_state == "EMOTION":
             user_state['emotion_message_count'] = 0
@@ -397,7 +400,7 @@ class StateMachine:
             system_prompt = file.read()
             user_state = self.get_user_state(user)
             memory_context = self.memory_manager.format_memory_for_prompt(
-                user, 
+                user,
                 session_id=user_state.get('current_session_id')
             )
             with open('debug.md', 'w', encoding="utf-8") as file:
@@ -417,28 +420,28 @@ class StateMachine:
         # print(f'system_prompt={system_prompt}')
         # print(f'user_prompt={message}')
         response = openai_req_generator(system_prompt=system_prompt, user_prompt=message, json_output=False, temperature=0.1)
-        
+
         # Track the response for repetition prevention
         self._track_response_for_repetition(response)
-        
+
         return response
-    
+
     def _get_repetition_prevention_context(self):
         """Generate context about used phrases to prevent repetition"""
         context = "**قبل از پاسخ دادن، این عبارات قبلاً استفاده شده‌اند و نباید تکرار شوند:**\n\n"
-        
+
         if self.repetition_prevention.used_empathy_phrases:
             context += "**عبارات همدردی استفاده شده:**\n"
             for phrase in list(self.repetition_prevention.used_empathy_phrases)[-5:]:  # Show last 5
                 context += f"- {phrase}\n"
             context += "\n"
-        
+
         if self.repetition_prevention.used_questions:
             context += "**سوالات استفاده شده:**\n"
             for phrase in list(self.repetition_prevention.used_questions)[-5:]:  # Show last 5
                 context += f"- {phrase}\n"
             context += "\n"
-        
+
         # Add overused words warning
         overused_words = self.repetition_prevention.get_overused_words(threshold=2)
         if overused_words:
@@ -446,7 +449,7 @@ class StateMachine:
             for word, count in overused_words.items():
                 context += f"- '{word}' ({count} بار استفاده شده)\n"
             context += "\n"
-        
+
         context += "**نکات مهم برای صحبت دوستانه:**\n"
         context += "1. هرگز هیچ یک از عبارات بالا را تکرار نکنید\n"
         context += "2. همیشه از عبارات جدید و متنوع استفاده کنید\n"
@@ -464,14 +467,14 @@ class StateMachine:
         context += "14. به جای 'کمکت کنم' از عبارات متنوع استفاده کنید\n"
         context += "15. به جای 'متاسفم' از عبارات همدردی متنوع استفاده کنید\n"
         context += "16. به جای 'می‌تونم' از ساختارهای جملات متنوع استفاده کنید\n"
-        
+
         return context
-    
+
     def _track_response_for_repetition(self, response):
         """Track the response to prevent future repetition"""
         if not response:
             return
-        
+
         # Extract sentences and track them
         sentences = re.split(r'[.!?؟]', response)
         for sentence in sentences:
@@ -504,7 +507,7 @@ class StateMachine:
             f"{'User' if msg.is_user else 'Assistant'}: {msg.text}"
             for msg in messages_obj
         ])
-        
+
         # For emotion and event states, only consider current session history
         # For other states (like greeting), consider both current session and previous memory
         if data in ["emotion.md", "event.md"]:
@@ -518,7 +521,7 @@ class StateMachine:
                 full_context += f"اطلاعات قبلی کاربر از جلسات گذشته:\n{user_memory}\n\n"
             if chat_history:
                 full_context += f"تاریخچه جلسه فعلی:\n{chat_history}"
-        
+
         transit = if_data_sufficient_for_state_change(data, full_context)
         return transit
 
@@ -607,6 +610,13 @@ class StateMachine:
                 user_state['stage'],
                 day_filtered_exercises
             )
+
+            if not exercise_content:
+                # Handle case where no more exercises are available for the day
+                response = "به نظر می‌رسه تمام تمرین‌های امروز رو انجام دادی. فردا تمرین‌های جدیدی خواهیم داشت. کارِت عالی بود!"
+                self.transition("THANKS", user)
+                return response, create_recommendations(response, self.memory_manager.get_current_memory(user)), None, None
+
             user_state['exercises_done'].add(exercise_number)
             response = self.customize_excercises(
                 "suggestion.md", user, exercise_content)
@@ -642,16 +652,16 @@ class StateMachine:
 
     def execute_state(self, message, user):
         user_id = user.id
-        
+
         # Check if user is currently being processed
         if self.message_buffer.is_user_processing(user_id):
             # Add message to buffer and return None to indicate processing is ongoing
             self.message_buffer.add_message(user_id, message)
             return None, None, None, None, None
-        
+
         # Start processing for this user
         self.message_buffer.start_processing(user_id)
-        
+
         try:
             # Get any buffered messages and concatenate with current message
             buffered_messages = self.message_buffer.get_buffered_messages(user_id)
@@ -662,7 +672,7 @@ class StateMachine:
                 print(f"Processing concatenated message for user {user_id}: {final_message}")
             else:
                 final_message = message
-            
+
             user_state = self.get_user_state(user)
             print(f"You are in the {user_state['state']} state")
 
@@ -672,9 +682,9 @@ class StateMachine:
 
             # update memory and increment message count with current session ID
             self.memory_manager.add_message(
-                user=user, 
-                text=final_message, 
-                is_user=True, 
+                user=user,
+                text=final_message,
+                is_user=True,
                 session_id=user_state['current_session_id']
             )
 
@@ -695,11 +705,11 @@ class StateMachine:
                 if 'emotion_message_count' not in user_state:
                     user_state['emotion_message_count'] = 0
                 user_state['emotion_message_count'] += 1
-                
+
                 transit = self.if_transition(user, "emotion.md")
                 print("transit", transit)
                 print(f"Emotion messages in current state: {user_state['emotion_message_count']}")
-                
+
                 # Only transition if we have sufficient emotion data AND at least 2 messages in this state
                 if "بله" in transit and user_state['emotion_message_count'] >= 2:
                     self.transition("EMOTION_DECIDER", user)
@@ -710,11 +720,11 @@ class StateMachine:
                 if 'event_message_count' not in user_state:
                     user_state['event_message_count'] = 0
                 user_state['event_message_count'] += 1
-                
+
                 transit = self.if_transition(user, "event.md")
                 print("transit", transit)
                 print(f"Event messages in current state: {user_state['event_message_count']}")
-                
+
                 # Only transition if we have sufficient event data AND at least 2 messages in this state
                 if "بله" in transit and user_state['event_message_count'] >= 2:
                     # Check if user wants to explain more (نمیدونی چی شد میخوای تعریف کنم برات)
@@ -761,15 +771,15 @@ class StateMachine:
             # print(response, recommendations)
 
             self.memory_manager.add_message(
-                user=user, 
-                text=response, 
-                is_user=False, 
+                user=user,
+                text=response,
+                is_user=False,
                 session_id=user_state['current_session_id']
             )
             user_state['message_count'] += 2
 
             return response, recommendations, user_state['state'], explainibility, excercise_number
-            
+
         finally:
             # Always end processing when done
             self.message_buffer.end_processing(user_id)
@@ -801,7 +811,7 @@ class StateMachine:
         from api.models import Message
         latest_session = Message.objects.filter(user=user).aggregate(Max('session_id'))['session_id__max']
         new_session_id = (latest_session or 0) + 1
-        
+
         # Reset user state to initial values with new session
         self.user_states[user.id] = {
             'state': "GREETING_FORMALITY_NAME",
@@ -815,13 +825,13 @@ class StateMachine:
             'emotion_message_count': 0,
             'event_message_count': 0
         }
-        
+
         # Reset repetition prevention for this user
         self.repetition_prevention.reset_for_user(user.id)
-        
+
         # Clear any buffered messages for this user
         self.message_buffer.end_processing(user.id)
-        
+
         print(f"State machine reset for user {user.id} to initial state with session {new_session_id}")
         return {
             'state': "GREETING_FORMALITY_NAME",
@@ -832,34 +842,34 @@ class StateMachine:
             'current_day': self.get_user_day_progress(user),
             'session_id': new_session_id
         }
-    
+
     def process_buffered_messages(self, user):
         """Process any buffered messages for a user"""
         user_id = user.id
-        
+
         # Check if user is currently being processed
         if self.message_buffer.is_user_processing(user_id):
             return None, None, None, None, None
-        
+
         # Check if there are buffered messages
         if not self.message_buffer.has_buffered_messages(user_id):
             return None, None, None, None, None
-        
+
         # Start processing for this user
         self.message_buffer.start_processing(user_id)
-        
+
         try:
             # Get all buffered messages
             buffered_messages = self.message_buffer.get_buffered_messages(user_id)
             if buffered_messages:
                 final_message = self.message_buffer.concatenate_messages(buffered_messages)
                 print(f"Processing buffered messages for user {user_id}: {final_message}")
-                
+
                 # Process the concatenated message
                 return self.execute_state(final_message, user)
-            
+
             return None, None, None, None, None
-            
+
         finally:
             # Always end processing when done
             self.message_buffer.end_processing(user_id)
