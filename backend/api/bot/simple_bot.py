@@ -99,9 +99,9 @@ def simple_bot_response(history, user_message, user):
     formatted_system_prompt = system_prompt.format(daily_exercises=daily_exercises, memory="")
 
     messages = [{"role": "system", "content": formatted_system_prompt}]
-    # Include only the last two messages from history (if any)
+    # Include only the last six messages from history (if any)
     if history:
-        messages.extend(history[-3:])
+        messages.extend(history[-6:])
     messages.append({"role": "user", "content": user_message})
 
     # print("messages:", messages)

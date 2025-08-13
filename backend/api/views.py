@@ -108,11 +108,58 @@ class MessageView(APIView):
 
 
 class SimpleBotView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get_current_session_id(self, user):
+        """Get the latest session_id for the user, or start a new one if none exists."""
+        latest_message = Message.objects.filter(user=user).order_by('-timestamp').first()
+        if latest_message:
+            return latest_message.session_id
+        else:
+            return 1  # Start with session 1 if no messages exist
+
+    def get_last_n_history(self, user, n=6):
+        """
+        Retrieve the last n messages (user and assistant) for the current user.
+        Returns a list of dicts: [{"role": "user"/"assistant", "content": ...}, ...]
+        """
+        messages = (
+            Message.objects.filter(user=user)
+            .order_by('-timestamp')[:n]
+            .values('is_user', 'text')
+        )
+        # Reverse to chronological order
+        messages = list(messages)[::-1]
+        history = []
+        for msg in messages:
+            role = "user" if msg["is_user"] else "assistant"
+            history.append({"role": role, "content": msg["text"]})
+        return history
+
     def post(self, request):
-        history = request.data.get('history', [])
         text = request.data.get('text')
         user = request.user
+
+        # Get or create session_id
+        session_id = self.get_current_session_id(user)
+
+        # Save user message
+        Message.objects.create(user=user, text=text, is_user=True, session_id=session_id)
+
+        # Retrieve last N messages for history (excluding the current user message)
+        history = self.get_last_n_history(user, n=6)
+
+        # Call the bot
         response_text, recommendations, updated_history = simple_bot_response(history, text, user)
+
+        # Save assistant message
+        Message.objects.create(user=user, text=response_text, is_user=False, session_id=session_id)
+
+        # Optionally, update history with the new messages
+        updated_history = history + [
+            {"role": "user", "content": text},
+            {"role": "assistant", "content": response_text}
+        ]
         return Response({
             "response": response_text,
             "recommendations": recommendations,
