@@ -24,7 +24,7 @@ class MemoryManager:
         memory_state, created = UserMemoryState.objects.get_or_create(user=user)
         return memory_state
 
-    def add_message(self, user, text, is_user=True, session_id=None):
+    def add_message(self, user, text, is_user=True, session_id=None, state=None):
         # Get the current session ID or create new one
         if session_id is None:
             current_session = Message.objects.filter(user=user).aggregate(Max('session_id'))['session_id__max']
@@ -36,6 +36,7 @@ class MemoryManager:
             text=text,
             session_id=session_id,
             is_user=is_user,
+            state=state,
             timestamp=time.time()
         )
         return message

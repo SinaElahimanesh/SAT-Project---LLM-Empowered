@@ -29,6 +29,8 @@ Given the user's current situation, stage, and exercises user done before, analy
 3. Suggest the top three exercises that align with the user's needs.
 4. Return just Exercise Number of selected exercsies with ',' seperated
 5. Pay attention to all exercises equally and choose the best one, which best fits the situation of user, regardless of the order of the exercises
+6. **⚠️ IMPORTANT: Only select from existing exercises in the JSON. Do not generate new exercises**
+7. **⚠️ IMPORTANT: Do not modify exercise content. Only select from what is provided**
 
 ### Example Output Format
 1,4,8b
