@@ -25,7 +25,7 @@ SECRET_KEY = 'django-insecure-$h8j*m$p^go10twhmb0)^7-10a4xdb^vdt=f*t_bvcw&-l69t@
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['91.228.186.111']
 
 
 # Application definition
@@ -136,6 +136,8 @@ AUTH_USER_MODEL = 'api.User'
 # CORS settings
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
+    "http://91.228.186.111:3000",
+    "http://91.228.186.111",
 ]
 
 from datetime import timedelta
@@ -144,3 +146,4 @@ SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(days=15),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=15),
 }
+
