@@ -543,29 +543,7 @@ class StateMachine:
             else:
                 self.transition("SUPER_STATE_EVENT", user)
 
-        if user_state['state'] == "ASK_EXERCISE_DECIDER":
-            response = self.openai_llm.response_retriever(user_message=message, chat_history=chat_history)
-            self.set_response(response, user)
-            if 'Yes' in user_state['response']:
-                self.transition("EXERCISE_SUGGESTION", user)
-            else:
-                self.transition("THANKS", user)
 
-        if user_state['state'] == "SUGGESTION_TO_EXPLANATION_DECIDER":
-            response = self.openai_llm.response_retriever(user_message=message, chat_history=chat_history)
-            self.set_response(response, user)
-            if 'Yes' in user_state['response']:
-                self.transition("EXERCISE_EXPLANATION", user)
-            else:
-                self.transition("LIKE_ANOTHER_EXERCSISE", user)
-
-        if user_state['state'] == "LIKE_ANOTHER_EXERCSISE_DECIDER":
-            response = self.openai_llm.response_retriever(user_message=message, chat_history=chat_history)
-            self.set_response(response, user)
-            if 'Yes' in user_state['response']:
-                self.transition("EXERCISE_SUGGESTION", user)
-            else:
-                self.transition("THANKS", user)
 
         if user_state['state'] == "GREETING_FORMALITY_NAME":
             # Check transition status for greeting
@@ -678,7 +656,8 @@ class StateMachine:
                 user=user,
                 text=final_message,
                 is_user=True,
-                session_id=user_state['current_session_id']
+                session_id=user_state['current_session_id'],
+                state=user_state['state']
             )
 
             # Check if we need to update memory summary (only for current session)
@@ -733,14 +712,32 @@ class StateMachine:
                     self.transition("ASK_EXERCISE", user)
 
             elif user_state['state'] == "ASK_EXERCISE":
-                # Don't immediately transition to decider, stay in ASK_EXERCISE for exercise explanation
-                # Only transition when user shows clear intent to move to next stage
-                if "بله" in message or "آره" in message or "باشه" in message:
-                    self.transition("ASK_EXERCISE_DECIDER", user)
+                # Use response_retriever to intelligently detect user's intent
+                messages_obj = self.memory_manager.get_chat_history(user)
+                chat_history = "\n".join([
+                    f"{'User' if msg.is_user else 'Assistant'}: {msg.text}"
+                    for msg in messages_obj
+                ])
+                response = self.openai_llm.response_retriever(user_message=message, chat_history=chat_history)
+                self.set_response(response, user)
+                if 'Yes' in user_state['response']:
+                    self.transition("EXERCISE_SUGGESTION", user)
+                else:
+                    self.transition("THANKS", user)
 
             elif user_state['state'] == "EXERCISE_SUGGESTION":
-                # After suggesting exercise, transition to explanation state
-                self.transition("SUGGESTION_TO_EXPLANATION_DECIDER", user)
+                # Use response_retriever to intelligently detect user's intent for exercise suggestion
+                messages_obj = self.memory_manager.get_chat_history(user)
+                chat_history = "\n".join([
+                    f"{'User' if msg.is_user else 'Assistant'}: {msg.text}"
+                    for msg in messages_obj
+                ])
+                response = self.openai_llm.response_retriever(user_message=message, chat_history=chat_history)
+                self.set_response(response, user)
+                if 'Yes' in user_state['response']:
+                    self.transition("EXERCISE_EXPLANATION", user)
+                else:
+                    self.transition("LIKE_ANOTHER_EXERCSISE", user)
 
             elif user_state['state'] == "EXERCISE_EXPLANATION":
                 # Stay in explanation state until user shows clear intent to move forward
@@ -750,7 +747,18 @@ class StateMachine:
                 self.transition("LIKE_ANOTHER_EXERCSISE", user)
 
             elif user_state['state'] == "LIKE_ANOTHER_EXERCSISE":
-                self.transition("LIKE_ANOTHER_EXERCSISE_DECIDER", user)
+                # Use response_retriever to intelligently detect user's intent for another exercise
+                messages_obj = self.memory_manager.get_chat_history(user)
+                chat_history = "\n".join([
+                    f"{'User' if msg.is_user else 'Assistant'}: {msg.text}"
+                    for msg in messages_obj
+                ])
+                response = self.openai_llm.response_retriever(user_message=message, chat_history=chat_history)
+                self.set_response(response, user)
+                if 'Yes' in user_state['response']:
+                    self.transition("EXERCISE_SUGGESTION", user)
+                else:
+                    self.transition("THANKS", user)
 
             elif user_state['state'] == "THANKS":
                 self.transition("END", user)
@@ -766,7 +774,8 @@ class StateMachine:
                 user=user,
                 text=response,
                 is_user=False,
-                session_id=user_state['current_session_id']
+                session_id=user_state['current_session_id'],
+                state=user_state['state']
             )
             user_state['message_count'] += 2
 

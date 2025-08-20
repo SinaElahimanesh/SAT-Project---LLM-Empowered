@@ -42,6 +42,7 @@ class Message(models.Model):
     timestamp = models.DateTimeField(auto_now_add=True)
     session_id = models.IntegerField()
     is_user = models.BooleanField(default=True)  # True if message is from user, False if from LLM
+    state = models.CharField(max_length=50, null=True, blank=True, help_text="FSM state when message was created")
 
     def __str__(self):
         return f"{self.user.username}: {self.text[:30]} ({self.session_id})"
