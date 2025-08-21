@@ -3,6 +3,7 @@ from api.bot.gpt_for_summarization import openai_req_generator
 from django.db.models import Max
 import time
 
+
 def summarize_conversation(text, context):
     system_prompt = f"""
     با توجه به پیش‌زمینه‌ای که از مکالمه موجود است و به شرح زیر است:
@@ -14,6 +15,7 @@ def summarize_conversation(text, context):
     همچنین مواردی همچون نام کاربر، ترجیح کاربر برای صحبت کردن به حالت رسمی یا دوستانه و حال کاربر را به وضوح با تیتر مشخص ذخیره کنید.
     """
     return openai_req_generator(system_prompt=system_prompt, json_output=False, temperature=0.1)
+
 
 class MemoryManager:
     def __init__(self):
@@ -46,11 +48,11 @@ class MemoryManager:
         last_processed = memory_state.last_processed_message
 
         query = Message.objects.filter(user=user)
-        
+
         # Filter by session if provided
         if session_id is not None:
             query = query.filter(session_id=session_id)
-        
+
         if last_processed:
             return query.filter(timestamp__gt=last_processed.timestamp).order_by('timestamp')
         return query.order_by('timestamp')
@@ -69,13 +71,13 @@ class MemoryManager:
     def update_memory(self, user):
         memory_state = self.get_or_create_memory_state(user)
         unprocessed_messages = self.get_unprocessed_messages(user)
-        
+
         if not unprocessed_messages.exists():
             return memory_state.current_memory
 
         # Format messages for summarization
         conversation = "\n".join([
-            f"{'User' if msg.is_user else 'LLM'}: {msg.text}" 
+            f"{'User' if msg.is_user else 'LLM'}: {msg.text}"
             for msg in unprocessed_messages
         ])
 
@@ -105,30 +107,33 @@ class MemoryManager:
     def end_session(self, user):
         self.update_memory(user)
 
+    def get_formatted_session_history(self, user, session_id=None):
+        """
+        Returns the full conversation history for the current session,
+        formatted as alternating User/Assistant messages.
+        """
+        messages = self.get_chat_history(user, session_id)
+        lines = []
+        for msg in messages:
+            role = "User" if msg.is_user else "Assistant"
+            lines.append(f"{role}: {msg.text}")
+        return "\n".join(lines)
+
     def format_memory_for_prompt(self, user, session_id=None):
         # Get current memory state
         memory_state = self.get_or_create_memory_state(user)
         current_memory = memory_state.current_memory or ""
-        
+
         # Get unprocessed messages for current session
         unprocessed = self.get_unprocessed_messages(user, session_id)
         unprocessed_text = "\n".join([
-            f"{'کاربر' if msg.is_user else 'دستیار'}: {msg.text}" 
+            f"{'User' if msg.is_user else 'Assistant'}: {msg.text}"
             for msg in unprocessed
         ])
-        
+
         # Combine current memory with unprocessed messages
         if unprocessed_text:
-            formatted_memory = f"""
-                            پیش‌زمینه مکالمه:
-                            {current_memory}
-
-                            پیام‌های اخیر:
-                            {unprocessed_text}
-                            """
+            formatted_memory = f"""پیش‌زمینه مکالمه:\n{current_memory}\n\nپیام‌های اخیر:\n{unprocessed_text}"""
         else:
-            formatted_memory = f"""
-                        پیش‌زمینه مکالمه:
-                        {current_memory}
-                        """     
+            formatted_memory = f"""پیش‌زمینه مکالمه:\n{current_memory}"""
         return formatted_memory.strip()

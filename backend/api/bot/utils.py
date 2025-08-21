@@ -119,9 +119,14 @@ class RepetitionPrevention:
         return [phrase for phrase in phrase_list if not self.is_phrase_used(phrase, category)]
 
     def reset_for_user(self, user_id):
-        """Reset repetition prevention for a specific user"""
-        # For now, we'll keep the global tracking but could implement per-user tracking later
-        pass
+        """Reset repetition prevention for a specific user (global for now)"""
+        self.used_phrases.clear()
+        self.used_questions.clear()
+        self.used_empathy_phrases.clear()
+        self.used_transitions.clear()
+        self.used_words.clear()
+        for word in self.problematic_words:
+            self.problematic_words[word] = 0
 
 
 class MessageBuffer:
@@ -398,30 +403,34 @@ class StateMachine:
     def ask_llm(self, prompt_file, message, user, transition_info=None):
         with open(f'api/bot/Prompts/{prompt_file}', "r", encoding="utf-8") as file:
             system_prompt = file.read()
-            user_state = self.get_user_state(user)
-            memory_context = self.memory_manager.format_memory_for_prompt(
-                user,
-                session_id=user_state.get('current_session_id')
-            )
-            with open('debug.md', 'w', encoding="utf-8") as file:
-                file.write(memory_context)
-            if memory_context != "":
-                system_prompt = system_prompt.format(memory=memory_context)
 
-        # Add transition information to the prompt if provided
+        user_state = self.get_user_state(user)
+        memory_context = self.memory_manager.format_memory_for_prompt(
+            user,
+            session_id=user_state.get('current_session_id')
+        )
+        session_history = self.memory_manager.get_formatted_session_history(
+            user,
+            session_id=user_state.get('current_session_id')
+        )
+
+        full_context = f"""### خلاصه اطلاعات کاربر:\n{memory_context}\n\n### تاریخچه کامل مکالمه این جلسه:\n{session_history}"""
+
         if transition_info:
-            transition_context = f"\n\n### 🔍 وضعیت انتقال فعلی:\n**نتیجه انتقال: {transition_info}**\n"
-            system_prompt += transition_context
+            transition_context = f"\n\n### 🔍 وضعیت انتقال فعلی:\n**نتیجه انتقال:\n{transition_info}**\n"
+            system_prompt = system_prompt.format(memory=full_context, transition_awareness=transition_context)
 
-        # Add global repetition prevention context to the prompt
+        else:
+            system_prompt = system_prompt.format(memory=full_context)
+
         repetition_context = self._get_repetition_prevention_context()
         system_prompt += f"\n\n### ⚠️ هشدار مهم - جلوگیری از تکرار در کل مکالمه:\n{repetition_context}"
 
         # print(f'system_prompt={system_prompt}')
         # print(f'user_prompt={message}')
+
         response = openai_req_generator(system_prompt=system_prompt, user_prompt=message, json_output=False, temperature=0.1)
 
-        # Track the response for repetition prevention
         self._track_response_for_repetition(response)
 
         return response
@@ -543,8 +552,6 @@ class StateMachine:
             else:
                 self.transition("SUPER_STATE_EVENT", user)
 
-
-
         if user_state['state'] == "GREETING_FORMALITY_NAME":
             # Check transition status for greeting
             transit = self.if_transition(user, "greeting.md")
@@ -661,7 +668,7 @@ class StateMachine:
             )
 
             # Check if we need to update memory summary (only for current session)
-            if user_state['message_count'] >= 4:
+            if user_state['message_count'] >= 3:
                 self.memory_manager.update_memory(user)
                 user_state['message_count'] = 0
 
@@ -712,7 +719,6 @@ class StateMachine:
                     self.transition("ASK_EXERCISE", user)
 
             elif user_state['state'] == "ASK_EXERCISE":
-                # Use response_retriever to intelligently detect user's intent
                 messages_obj = self.memory_manager.get_chat_history(user)
                 chat_history = "\n".join([
                     f"{'User' if msg.is_user else 'Assistant'}: {msg.text}"
@@ -726,7 +732,6 @@ class StateMachine:
                     self.transition("THANKS", user)
 
             elif user_state['state'] == "EXERCISE_SUGGESTION":
-                # Use response_retriever to intelligently detect user's intent for exercise suggestion
                 messages_obj = self.memory_manager.get_chat_history(user)
                 chat_history = "\n".join([
                     f"{'User' if msg.is_user else 'Assistant'}: {msg.text}"
@@ -740,8 +745,17 @@ class StateMachine:
                     self.transition("LIKE_ANOTHER_EXERCSISE", user)
 
             elif user_state['state'] == "EXERCISE_EXPLANATION":
-                # Stay in explanation state until user shows clear intent to move forward
-                self.transition("FEEDBACK", user)
+                messages_obj = self.memory_manager.get_chat_history(user)
+                chat_history = "\n".join([
+                    f"{'User' if msg.is_user else 'Assistant'}: {msg.text}"
+                    for msg in messages_obj
+                ])
+                response = self.openai_llm.response_retriever(user_message=message, chat_history=chat_history)
+                self.set_response(response, user)
+                if 'Yes' in user_state['response']:
+                    self.transition("FEEDBACK", user)
+                else:
+                    self.transition("LIKE_ANOTHER_EXERCSISE", user)
 
             elif user_state['state'] == "FEEDBACK":
                 self.transition("LIKE_ANOTHER_EXERCSISE", user)
@@ -777,7 +791,7 @@ class StateMachine:
                 session_id=user_state['current_session_id'],
                 state=user_state['state']
             )
-            user_state['message_count'] += 2
+            user_state['message_count'] += 1
 
             return response, recommendations, user_state['state'], explainibility, excercise_number
 
@@ -828,7 +842,7 @@ class StateMachine:
         }
 
         # Reset repetition prevention for this user
-        self.repetition_prevention.reset_for_user(user.id)
+        # self.repetition_prevention.reset_for_user(user.id)
 
         # Clear any buffered messages for this user
         self.message_buffer.end_processing(user.id)
