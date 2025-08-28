@@ -14,6 +14,14 @@ with open('api/bot/RAG/exercises_mapping.json', 'r', encoding='utf-8') as f:
     exercises_metadata = json.load(f)
 
 
+def load_sat_knowledge():
+    """Load SAT knowledge base for injection into prompts"""
+    try:
+        with open('api/bot/RAG/sat_knowledge_base.md', "r", encoding="utf-8") as file:
+            return file.read()
+    except FileNotFoundError:
+        return "دانش پایه SAT در دسترس نیست."
+
 def load_system_prompt():
     with open(PROMPT_PATH, 'r', encoding='utf-8') as f:
         return f.read()
@@ -95,8 +103,15 @@ def simple_bot_response(history, user_message, user):
 
     print(f"History: {history}")
 
+    # Load SAT knowledge base
+    sat_knowledge = load_sat_knowledge()
+
     system_prompt = load_system_prompt()
     formatted_system_prompt = system_prompt.format(daily_exercises=daily_exercises, memory="")
+
+    # Inject SAT knowledge into the prompt
+    sat_knowledge_section = f"\n\n### 📚 دانش پایه تکنیک دلبستگی به خود (SAT):\n{sat_knowledge}\n"
+    formatted_system_prompt += sat_knowledge_section
 
     messages = [{"role": "system", "content": formatted_system_prompt}]
     # Include only the last six messages from history (if any)

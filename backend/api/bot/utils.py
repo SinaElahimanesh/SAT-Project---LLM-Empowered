@@ -400,9 +400,20 @@ class StateMachine:
         elif new_state == "SUPER_STATE_EVENT":
             user_state['event_message_count'] = 0
 
+    def _load_sat_knowledge(self):
+        """Load SAT knowledge base for injection into prompts"""
+        try:
+            with open('api/bot/RAG/sat_knowledge_base.md', "r", encoding="utf-8") as file:
+                return file.read()
+        except FileNotFoundError:
+            return "دانش پایه SAT در دسترس نیست."
+
     def ask_llm(self, prompt_file, message, user, transition_info=None):
         with open(f'api/bot/Prompts/{prompt_file}', "r", encoding="utf-8") as file:
             system_prompt = file.read()
+
+        # Load SAT knowledge base
+        sat_knowledge = self._load_sat_knowledge()
 
         user_state = self.get_user_state(user)
         memory_context = self.memory_manager.format_memory_for_prompt(
@@ -416,12 +427,17 @@ class StateMachine:
 
         full_context = f"""### خلاصه اطلاعات کاربر:\n{memory_context}\n\n### تاریخچه کامل مکالمه این جلسه:\n{session_history}"""
 
+        # Inject SAT knowledge into the prompt
+        sat_knowledge_section = f"\n\n### 📚 دانش پایه تکنیک دلبستگی به خود (SAT):\n{sat_knowledge}\n"
+
         if transition_info:
             transition_context = f"\n\n### 🔍 وضعیت انتقال فعلی:\n**نتیجه انتقال:\n{transition_info}**\n"
             system_prompt = system_prompt.format(memory=full_context, transition_awareness=transition_context)
-
         else:
             system_prompt = system_prompt.format(memory=full_context)
+
+        # Add SAT knowledge before repetition prevention
+        system_prompt += sat_knowledge_section
 
         repetition_context = self._get_repetition_prevention_context()
         system_prompt += f"\n\n### ⚠️ هشدار مهم - جلوگیری از تکرار در کل مکالمه:\n{repetition_context}"
@@ -500,12 +516,20 @@ class StateMachine:
     def customize_excercises(self, prompt_file, user, excercises):
         with open(f'api/bot/Prompts/{prompt_file}', "r", encoding="utf-8") as file:
             system_prompt = file.read()
-            memory_context = self.memory_manager.format_memory_for_prompt(user)
-            # with open('debug.md', 'w', encoding="utf-8") as file:
-            #     file.write(memory_context)
-            if memory_context != "":
-                system_prompt = system_prompt.format(
-                    memory=memory_context, exc=excercises)
+            
+        # Load SAT knowledge base
+        sat_knowledge = self._load_sat_knowledge()
+        
+        memory_context = self.memory_manager.format_memory_for_prompt(user)
+        # with open('debug.md', 'w', encoding="utf-8") as file:
+        #     file.write(memory_context)
+        if memory_context != "":
+            system_prompt = system_prompt.format(
+                memory=memory_context, exc=excercises)
+
+        # Inject SAT knowledge into the prompt
+        sat_knowledge_section = f"\n\n### 📚 دانش پایه تکنیک دلبستگی به خود (SAT):\n{sat_knowledge}\n"
+        system_prompt += sat_knowledge_section
 
         return openai_req_generator(system_prompt=system_prompt, user_prompt=None, json_output=False, temperature=0.1)
 
