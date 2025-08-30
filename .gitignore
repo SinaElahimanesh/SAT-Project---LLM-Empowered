@@ -105,4 +105,4 @@ backend/api/migrations/__pycache__/0001_initial.cpython-313.pyc
 backend/api/migrations/__pycache__/0002_message_is_user_usermemorystate.cpython-313.pyc
 backend/api/migrations/__pycache__/0003_user_stage.cpython-313.pyc
 backend/api/migrations/__pycache__/0004_user_group.cpython-313.pyc
-FINAL_IMPLEMENTATION_REPORT.md
+docs/FINAL_IMPLEMENTATION_REPORT.md
