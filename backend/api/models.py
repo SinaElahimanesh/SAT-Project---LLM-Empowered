@@ -16,6 +16,7 @@ class Stage(str, Enum):
 class UserGroup(str, Enum):
     CONTROL = "control"  # simple bot (RCT control group)
     INTERVENTION = "intervention"  # main chatbot (RCT intervention group)
+    PLACEBO = "placebo"  # placebo bot (minimal prompt chatbot)
 
     @classmethod
     def choices(cls):

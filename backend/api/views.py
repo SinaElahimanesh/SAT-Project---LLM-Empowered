@@ -10,6 +10,7 @@ from .bot.utils import StateMachine
 from rest_framework.decorators import api_view, permission_classes
 from .bot.Memory.LLM_Memory import MemoryManager
 from .bot.simple_bot import simple_bot_response
+from .bot.placebo_bot import placebo_bot_response
 
 import os
 from django.http import JsonResponse
@@ -26,19 +27,24 @@ memory_manager = MemoryManager()
 
 class RegisterView(APIView):
     def get_balanced_group(self):
-        """Get balanced group assignment based on current user counts"""
+        """Get balanced group assignment based on current user counts across all three groups"""
         control_count = User.objects.filter(group='control').count()
         intervention_count = User.objects.filter(group='intervention').count()
+        placebo_count = User.objects.filter(group='placebo').count()
 
-        # If intervention group has fewer users, assign to intervention
-        if intervention_count < control_count:
-            return 'intervention'
-        # If control group has fewer users, assign to control
-        elif control_count < intervention_count:
-            return 'control'
-        # If equal, randomly choose
-        else:
-            return random.choice(['control', 'intervention'])
+        # Find the group with the minimum count
+        group_counts = {
+            'control': control_count,
+            'intervention': intervention_count,
+            'placebo': placebo_count
+        }
+
+        # Get the group(s) with minimum count
+        min_count = min(group_counts.values())
+        min_groups = [group for group, count in group_counts.items() if count == min_count]
+
+        # If multiple groups have the same minimum count, randomly choose among them
+        return random.choice(min_groups)
 
     def post(self, request):
         data = request.data.copy()
@@ -151,6 +157,66 @@ class SimpleBotView(APIView):
 
         # Call the bot
         response_text, recommendations, updated_history = simple_bot_response(history, text, user)
+
+        # Save assistant message
+        Message.objects.create(user=user, text=response_text, is_user=False, session_id=session_id)
+
+        # Optionally, update history with the new messages
+        updated_history = history + [
+            {"role": "user", "content": text},
+            {"role": "assistant", "content": response_text}
+        ]
+        return Response({
+            "response": response_text,
+            "recommendations": recommendations,
+            "history": updated_history
+        }, status=200)
+
+
+class PlaceboBotView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get_current_session_id(self, user):
+        """Get the latest session_id for the user, or start a new one if none exists."""
+        latest_message = Message.objects.filter(user=user).order_by('-timestamp').first()
+        if latest_message:
+            return latest_message.session_id
+        else:
+            return 1  # Start with session 1 if no messages exist
+
+    def get_last_n_history(self, user, n=6):
+        """
+        Retrieve the last n messages (user and assistant) for the current user.
+        Returns a list of dicts: [{"role": "user"/"assistant", "content": ...}, ...]
+        """
+        messages = (
+            Message.objects.filter(user=user)
+            .order_by('-timestamp')[:n]
+            .values('is_user', 'text')
+        )
+        # Reverse to chronological order
+        messages = list(messages)[::-1]
+        history = []
+        for msg in messages:
+            role = "user" if msg["is_user"] else "assistant"
+            history.append({"role": role, "content": msg["text"]})
+        return history
+
+    def post(self, request):
+        text = request.data.get('text')
+        user = request.user
+
+        # Get or create session_id
+        session_id = self.get_current_session_id(user)
+
+        # Save user message
+        Message.objects.create(user=user, text=text, is_user=True, session_id=session_id)
+
+        # Retrieve last N messages for history (excluding the current user message)
+        history = self.get_last_n_history(user, n=6)
+
+        # Call the placebo bot
+        response_text, recommendations, updated_history = placebo_bot_response(history, text, user)
 
         # Save assistant message
         Message.objects.create(user=user, text=response_text, is_user=False, session_id=session_id)
