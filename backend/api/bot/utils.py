@@ -317,6 +317,7 @@ class StateMachine:
         day_progress, created = UserDayProgress.objects.get_or_create(user=user)
         return day_progress.calculate_current_day()
 
+
     def get_day_allowed_exercises(self, day):
         """Get allowed exercise numbers for a given day"""
         if day == 8:
@@ -521,11 +522,22 @@ class StateMachine:
         sat_knowledge = self._load_sat_knowledge()
         
         memory_context = self.memory_manager.format_memory_for_prompt(user)
+        
+        # Get current day progress
+        current_day = self.get_user_day_progress(user)
+        
         # with open('debug.md', 'w', encoding="utf-8") as file:
         #     file.write(memory_context)
         if memory_context != "":
             system_prompt = system_prompt.format(
-                memory=memory_context, exc=excercises)
+                memory=memory_context, 
+                exc=excercises,
+                current_day=current_day)
+        else:
+            system_prompt = system_prompt.format(
+                memory="", 
+                exc=excercises,
+                current_day=current_day)
 
         # Inject SAT knowledge into the prompt
         sat_knowledge_section = f"\n\n### 📚 دانش پایه تکنیک دلبستگی به خود (SAT):\n{sat_knowledge}\n"
@@ -626,7 +638,7 @@ class StateMachine:
             response = self.customize_excercises(
                 "suggestion.md", user, exercise_content)
             explainability = create_exercise_explanation(
-                exercise_content, user_memory)
+                user_memory, exercise_content)
             return response, create_recommendations(response, self.memory_manager.get_current_memory(user)), explainability, exercise_number
 
         elif user_state['state'] == "EXERCISE_EXPLANATION":

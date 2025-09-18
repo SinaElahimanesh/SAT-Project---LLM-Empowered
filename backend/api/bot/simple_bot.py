@@ -33,6 +33,8 @@ def get_user_day_progress(user):
     return day_progress.calculate_current_day()
 
 
+
+
 def get_day_allowed_exercises(day):
     """Get allowed exercise numbers for a given day."""
     if day == 8:
@@ -100,14 +102,22 @@ def simple_bot_response(history, user_message, user):
     Returns: (response, recommendations, updated_history)
     """
     daily_exercises = get_daily_exercises(user, 3)
+    
+    # Get current day progress
+    current_day = get_user_day_progress(user)
 
     print(f"History: {history}")
+    print(f"User is on Day {current_day}")
 
     # Load SAT knowledge base
     sat_knowledge = load_sat_knowledge()
 
     system_prompt = load_system_prompt()
-    formatted_system_prompt = system_prompt.format(daily_exercises=daily_exercises, memory="")
+    formatted_system_prompt = system_prompt.format(
+        daily_exercises=daily_exercises, 
+        memory="",
+        current_day=current_day
+    )
 
     # Inject SAT knowledge into the prompt
     sat_knowledge_section = f"\n\n### 📚 دانش پایه تکنیک دلبستگی به خود (SAT):\n{sat_knowledge}\n"
