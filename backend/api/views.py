@@ -18,8 +18,6 @@ from django.core.files.storage import default_storage
 from django.core.files.base import ContentFile
 from .bot.ASR.ASRPipeline import feed_audio_to_ASR_modal
 
-import random
-
 # Create shared instances at module level
 state_machine = StateMachine()
 memory_manager = MemoryManager()
@@ -43,8 +41,17 @@ class RegisterView(APIView):
         min_count = min(group_counts.values())
         min_groups = [group for group, count in group_counts.items() if count == min_count]
 
-        # If multiple groups have the same minimum count, randomly choose among them
-        return random.choice(min_groups)
+        # If multiple groups have the same minimum count, prioritize based on:
+        # 1. Alpha (intervention) - highest priority
+        # 2. Beta (control) - second priority
+        # 3. Gamma (placebo) - third priority
+        priority_order = ['intervention', 'control', 'placebo']
+        for group in priority_order:
+            if group in min_groups:
+                return group
+        
+        # Fallback (should never reach here)
+        return min_groups[0]
 
     def post(self, request):
         data = request.data.copy()
