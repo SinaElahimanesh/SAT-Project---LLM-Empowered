@@ -1,7 +1,7 @@
 from api.bot.gpt import openai_req_with_history
 from api.bot.gpt_recommendations import create_recommendations
 
-PLACEBO_SYSTEM_PROMPT = """تو دستیار دلبستگی به خود هستی که وظیفه‌ات کمک به بهتر شدن حال روحی کاربر است."""
+PLACEBO_SYSTEM_PROMPT = """تو دستیار روان‌درمانی به خود هستی که وظیفه‌ات کمک به بهتر شدن حال روحی کاربر است."""
 
 
 def placebo_bot_response(history, user_message, user):
