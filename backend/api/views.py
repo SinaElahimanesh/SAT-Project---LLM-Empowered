@@ -1,3 +1,6 @@
+import logging
+import traceback
+
 from datetime import timezone
 from django.contrib.auth import authenticate
 from rest_framework.views import APIView
@@ -12,7 +15,6 @@ from .bot.Memory.LLM_Memory import MemoryManager
 from .bot.simple_bot import simple_bot_response
 from .bot.placebo_bot import placebo_bot_response
 
-import os
 from django.http import JsonResponse
 from django.core.files.storage import default_storage
 from django.core.files.base import ContentFile
@@ -22,6 +24,7 @@ from .bot.ASR.ASRPipeline import feed_audio_to_ASR_modal
 state_machine = StateMachine()
 memory_manager = MemoryManager()
 
+logger = logging.getLogger(__name__)
 
 class RegisterView(APIView):
     def get_balanced_group(self):
@@ -92,34 +95,69 @@ class MessageView(APIView):
         return ''.join(char for char in s if char.isdigit())
 
     def post(self, request):
-        # user = request.user
-        text = request.data.get('text')
-        user = request.user
-        print(user)
-        # latest_message = Message.objects.filter(user=user).order_by('-timestamp').first()
-        # session_id = latest_message.session_id if latest_message and (timezone.now() - latest_message.timestamp).seconds < 300 else (latest_message.session_id + 1 if latest_message else 1)
+        try:
+            user = request.user
+            text = None
 
-        # Save message
-        # message = Message.objects.create(user=user, text=text, session_id=session_id)
-
-        # State machine logic using shared instance
-        response_text, recommendations, state, explainibility, excercise_number = state_machine.execute_state(text, user)
-
-        # Check if processing is ongoing (None values indicate buffering)
-        if response_text is None:
+            if 'audio' in request.FILES:
+                try:
+                    audio_file = request.FILES['audio']
+                    logger.info(f"Received audio file: {audio_file.name}")
+                    
+                    file_name = default_storage.save(f'audio/{audio_file.name}', ContentFile(audio_file.read()))
+                    file_path = default_storage.path(file_name)
+                    
+                    logger.info(f"Saved audio file to: {file_path}")
+                    
+                    text = feed_audio_to_ASR_modal(file_path)
+                    logger.info(f"Transcribed text: {text}")
+                    
+                    default_storage.delete(file_name)
+                except Exception as e:
+                    logger.error(f"Audio processing error: {str(e)}")
+                    logger.error(traceback.format_exc())
+                    return Response({
+                        "error": f"Error processing audio: {str(e)}",
+                        "traceback": traceback.format_exc()
+                    }, status=500)
+            else:
+                text = request.data.get('text')
+                
+            if not text:
+                return Response({
+                    "error": "No text or audio input provided"
+                }, status=400)
+            
+            logger.info(f"Processing message from user: {user}")
+            
+            response_text, recommendations, state, explainibility, exercise_number = state_machine.execute_state(text, user)
+            
+            if response_text is None:
+                return Response({
+                    "response": "دارم فکر میکنم ...",
+                    "recommendations": [],
+                    "state": "PROCESSING",
+                    "explainibility": None,
+                    "excercise_number": None
+                }, status=202)
+                
+            excercise_number = self.keep_only_numbers(exercise_number)
+            
             return Response({
-                "response": "دارم فکر میکنم ...",
-                "recommendations": [],
-                "state": "PROCESSING",
-                "explainibility": None,
-                "excercise_number": None
-            }, status=202)  # 202 Accepted - processing ongoing
+                "response": response_text, 
+                "recommendations": recommendations, 
+                "state": state, 
+                "explainibility": explainibility, 
+                "excercise_number": excercise_number
+            }, status=200)
 
-        excercise_number = self.keep_only_numbers(excercise_number)
-
-        return Response({"response": response_text, "recommendations": recommendations, "state": state, "explainibility": explainibility, "excercise_number": excercise_number}, status=200)
-
-
+        except Exception as e:
+            logger.error(f"Unexpected error: {str(e)}")
+            logger.error(traceback.format_exc())
+            return Response({
+                "error": str(e),
+                "traceback": traceback.format_exc()
+            }, status=500)
 class SimpleBotView(APIView):
     permission_classes = [IsAuthenticated]
 

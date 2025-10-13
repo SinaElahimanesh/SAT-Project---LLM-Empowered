@@ -106,3 +106,4 @@ backend/api/migrations/__pycache__/0002_message_is_user_usermemorystate.cpython-
 backend/api/migrations/__pycache__/0003_user_stage.cpython-313.pyc
 backend/api/migrations/__pycache__/0004_user_group.cpython-313.pyc
 docs/FINAL_IMPLEMENTATION_REPORT.md
+backend/audio/*
