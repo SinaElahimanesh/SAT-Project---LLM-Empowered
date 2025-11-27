@@ -318,16 +318,19 @@ class StateMachine:
         return day_progress.calculate_current_day()
 
 
-    def get_day_allowed_exercises(self, day):
-        """Get allowed exercise numbers for a given day"""
+    def get_day_allowed_exercises(day):
+        """Get allowed exercise numbers for a given day."""
+        base_exercises = [0]
+        
         if day == 8:
-            return None
+            return None  # All exercises are allowed
         elif 1 <= day <= 7:
-            # Changed to cumulative: day 1 = [1,2,3], day 2 = [1,2,3,4,5,6], etc.
+            # Cumulative: day 1 = [1,2,3], day 2 = [1,2,3,4,5,6], etc.
             end_exercise = day * 3
-            return list(range(1, end_exercise + 1))
+            return base_exercises + list(range(1, end_exercise + 1))
         else:
-            return [1, 2, 3]
+            # Default to first day's exercises
+            return base_exercises + [1, 2, 3]
 
     def parse_exercise_number(self, exercise_num):
         """Parse exercise number to base number (e.g., '2a' -> 2, '0.1' -> 0)"""

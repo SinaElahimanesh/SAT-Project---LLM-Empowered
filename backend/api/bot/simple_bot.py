@@ -33,19 +33,19 @@ def get_user_day_progress(user):
     return day_progress.calculate_current_day()
 
 
-
-
 def get_day_allowed_exercises(day):
     """Get allowed exercise numbers for a given day."""
+    base_exercises = [0]
+    
     if day == 8:
         return None  # All exercises are allowed
     elif 1 <= day <= 7:
         # Cumulative: day 1 = [1,2,3], day 2 = [1,2,3,4,5,6], etc.
         end_exercise = day * 3
-        return list(range(1, end_exercise + 1))
+        return base_exercises + list(range(1, end_exercise + 1))
     else:
         # Default to first day's exercises
-        return [1, 2, 3]
+        return base_exercises + [1, 2, 3]
 
 
 def parse_exercise_number(exercise_num):
